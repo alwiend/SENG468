@@ -4,7 +4,7 @@ using System.Text;
 
 namespace QuoteServer
 {
-    class Quote
+    public class Quote
     {
         private DateTime quoteTime = DateTime.MinValue;
         private double cost;
