@@ -26,6 +26,7 @@ namespace QuoteServer
                 // get a new quote
                 if (quoteTime.AddSeconds(60) < DateTime.Now)
                 {
+                    quoteTime = DateTime.Now;
                     // Get a cent value from 1 to 1000
                     // Get dollar value by dividing by 100.00
                     cost = new Random().Next(1, 1000)/100.00;

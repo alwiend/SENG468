@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace QuoteServer
 {
@@ -26,7 +27,7 @@ namespace QuoteServer
 			// returns the name of the host 
 			// running the application. 
 			IPHostEntry ipHost = Dns.GetHostEntry(Dns.GetHostName());
-			IPAddress ipAddr = ipHost.AddressList[0];
+			IPAddress ipAddr = ipHost.AddressList.First(x => x.AddressFamily == AddressFamily.InterNetwork);
 			IPEndPoint localEndPoint = new IPEndPoint(ipAddr, 4444);
 
 			// Creation TCP/IP Socket using 
@@ -52,13 +53,15 @@ namespace QuoteServer
 				while (true)
 				{
 
-					Console.WriteLine("Waiting connection ... ");
+					Console.WriteLine($"Waiting connection on {localEndPoint.Address}:{localEndPoint.Port} address family {listener.AddressFamily}... ");
 
 					// Suspend while waiting for 
 					// incoming connection Using 
 					// Accept() method the server 
 					// will accept connection of client 
 					Socket clientSocket = listener.Accept();
+
+					Console.WriteLine("Client connected");
 
 					// Data buffer 
 					byte[] bytes = new Byte[1024];
@@ -73,12 +76,12 @@ namespace QuoteServer
 					{
 						quotes.Add(name, new Quote(name));
 					}
-
-					byte[] cost = Encoding.ASCII.GetBytes(quotes[name].Cost.ToString());
+					double cost = quotes[name].Cost;
+					Console.WriteLine($"Quoting {name}: ${cost}");
 
 					// Send a message to Client 
 					// using Send() method 
-					clientSocket.Send(cost);
+					clientSocket.Send(Encoding.ASCII.GetBytes(cost.ToString()));
 
 					// Close client Socket using the 
 					// Close() method. After closing, 
