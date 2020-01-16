@@ -8,7 +8,7 @@ docker create -p 4444:4444 --name quote_server quoteserver
 docker start quote_server
 
 # Monitor Quote Server output
-docker attach --sig-proxy=false quote_server
+docker attach --sig-proxy=false quote_server  
 _use `Ctrl-C` to exit_
 
 # Stop Quote Server
