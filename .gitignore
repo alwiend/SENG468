@@ -3,3 +3,14 @@ QuoteServer/QuoteServer/obj/
 QuoteServer/QuoteServer/bin/
 QuoteServer/QuoteServerTests/bin/
 QuoteServer/QuoteServerTests/obj/
+Base/.vs/
+Base/Service/obj/
+TransactionMicroservices/QuoteService/obj/
+WebServer/bin/
+WebServer/obj/Release/
+WebServer/obj/
+WebServer/.vs/
+TransactionMicroservices/QuoteService/bin/
+TransactionMicroservices/.vs/
+TransactionMicroservices/BaseService/bin/
+TransactionMicroservices/BaseService/obj/
