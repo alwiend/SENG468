@@ -1,0 +1,13 @@
+﻿@page
+@model WebServer.QuoteModel
+@{
+    ViewData["Title"] = "Quote";
+}
+
+<h1>QuotePage</h1>
+
+<form method="post">
+    <input asp-for="Quote">
+    <input type="submit">
+</form>
+<p> Cost: @Model.Cost  </p>
