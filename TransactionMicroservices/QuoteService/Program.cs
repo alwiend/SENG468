@@ -28,12 +28,9 @@ namespace QuoteService
             {
 
                 // Establish the remote endpoint  
-                // for the socket. This example  
-                // uses port 4444 on the local  
-                // computer. 
-                IPHostEntry ipHost = Dns.GetHostEntry(Dns.GetHostName()); 
-                IPAddress ipAddr = ipHost.AddressList.First(x => x.AddressFamily == AddressFamily.InterNetwork);
-                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, 4444);
+                // for the socket
+                IPAddress ipAddr = IPAddress.Parse("172.1.0.10");
+                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, 4448);
 
                 // Creation TCP/IP Socket using  
                 // Socket Class Costructor 

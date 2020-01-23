@@ -1,8 +1,8 @@
 # Building the Web Server image
-docker build -t webserver -f Dockerfile .
+docker build -t web_server_image -f Dockerfile .
 
 # Create Web Server Container
-docker create -p 8080:80 --name web_server webserver
+docker create --net day_trade_net --ip 172.1.0.9 --name web_server web_server_image
 
 # Start Web Server
 docker start web_server

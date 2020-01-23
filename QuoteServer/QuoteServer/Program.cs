@@ -22,17 +22,11 @@ namespace QuoteServer
 			// A list of quotes
 			Dictionary<string, Quote> quotes = new Dictionary<string, Quote>();
 
-			// Establish the local endpoint 
-			// for the socket. Dns.GetHostName 
-			// returns the name of the host 
-			// running the application. 
-			IPHostEntry ipHost = Dns.GetHostEntry(Dns.GetHostName());
-			IPAddress ipAddr = ipHost.AddressList.First(x => x.AddressFamily == AddressFamily.InterNetwork);
-			IPEndPoint localEndPoint = new IPEndPoint(ipAddr, 4444);
+			IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, 4448);
 
 			// Creation TCP/IP Socket using 
 			// Socket Class Costructor 
-			Socket listener = new Socket(ipAddr.AddressFamily,
+			Socket listener = new Socket(IPAddress.Any.AddressFamily,
 						SocketType.Stream, ProtocolType.Tcp);
 
 			try
