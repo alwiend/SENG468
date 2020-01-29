@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Base;
+using Utilities;
 
 namespace QuoteService
 {
@@ -16,7 +17,7 @@ namespace QuoteService
             new QuoteService().StartService();
         }
 
-        public QuoteService(): base(RequestQuote, 4445)
+        public QuoteService(): base(RequestQuote, 44440)
         {
         }
 
@@ -26,10 +27,10 @@ namespace QuoteService
             string cost = "";
             try
             {
-
                 // Establish the remote endpoint  
-                // for the socket
-                IPAddress ipAddr = IPAddress.Parse("172.1.0.10");
+                // for the socketstring howtogeek = "www.google.com";
+                IPAddress[] addresslist = Dns.GetHostAddresses("quoteserve.seng.uvic.ca");
+                var ipAddr = addresslist.FirstOrDefault();
                 IPEndPoint localEndPoint = new IPEndPoint(ipAddr, 4448);
 
                 // Creation TCP/IP Socket using  

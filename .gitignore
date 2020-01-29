@@ -19,3 +19,8 @@ WebServer/bin/
 
 QuoteServer/.vs/
 DatabaseServer/data/db/
+TransactionMicroservices/Utilities/obj/
+TransactionMicroservices/Utilities/bin/
+TransactionMicroservices/AddService/bin/
+*.user
+TransactionMicroservices/AddService/obj/

@@ -26,7 +26,7 @@ namespace Base
 			// returns the name of the host 
 			// running the application. 
 			IPHostEntry ipHost = Dns.GetHostEntry(Dns.GetHostName());
-			IPAddress ipAddr = ipHost.AddressList.First(x => x.AddressFamily == AddressFamily.InterNetwork);
+			IPAddress ipAddr = IPAddress.Any;
 			_localEndPoint = new IPEndPoint(ipAddr, port);
 
 			// Creation TCP/IP Socket using 

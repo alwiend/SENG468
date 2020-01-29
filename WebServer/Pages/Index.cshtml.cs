@@ -11,10 +11,13 @@ using Microsoft.Extensions.Logging;
 
 namespace WebServer.Pages
 {
+    [IgnoreAntiforgeryToken(Order = 1001)]
     public class IndexModel : PageModel
     {
         private readonly ILogger<IndexModel> _logger;
-
+        private static string _transactionServerIPString = Environment.GetEnvironmentVariable("TransactionServerIP");
+        
+        //private static string _auditServerIP = Environment.GetEnvironmentVariable("AuditServerIP");
 
         [BindProperty]
         public string Command { get; set; }
@@ -25,6 +28,7 @@ namespace WebServer.Pages
         public IndexModel(ILogger<IndexModel> logger)
         {
             _logger = logger;
+            Console.WriteLine($"TransactionServerIP: {_transactionServerIPString}");
         }
 
         public void OnGet()
@@ -34,6 +38,7 @@ namespace WebServer.Pages
 
         public void OnPost()
         {
+            Console.WriteLine($"Command: {Command}");
             string[] args = Command.Split(",");
             if (args.Length == 0)
             {
@@ -46,13 +51,22 @@ namespace WebServer.Pages
                 case "QUOTE":
                     if (args.Length == 3)
                     {
-                        Result = GetServiceResult(4445, $"{args[1]},{args[2]}");
+                        Result = GetServiceResult("quote_service", 44440, $"{args[1]},{args[2]}");
                     } else
                     {
                         Result = "Usage: QUOTE,userid,stock";
                     }
                     break;
                 case "ADD":
+                    if (args.Length == 3)
+                    {
+                        Result = GetServiceResult("add_service", 44441, $"{args[1]},{args[2]}");
+                    }
+                    else
+                    {
+                        Result = "Usage: ADD,userid,money";
+                    }
+                    break;
                 case "BUY":
                 case "COMMIT_BUY":
                 case "CANCEL_BUY":
@@ -78,13 +92,14 @@ namespace WebServer.Pages
         /*
          * @Param service The port for the service to connect to
          */
-        static string GetServiceResult(int service, string command)
+        static string GetServiceResult(string service, int port, string command)
         {
+            IPAddress[] addresslist = Dns.GetHostAddresses(service);
+            var ipAddr = addresslist.FirstOrDefault();
             string result = "";
             try
             {
-                IPAddress ipAddr = IPAddress.Parse("172.1.0.11");
-                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, service);
+                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, port);
 
                 // Creation TCP/IP Socket using  
                 // Socket Class Costructor 
