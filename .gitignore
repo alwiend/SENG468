@@ -38,3 +38,8 @@ TransactionMicroservices/Database/bin/
 WorkloadGenerator/bin/
 WorkloadGenerator/.vs/
 WorkloadGenerator/obj/
+
+TransactionMicroservices/BuyService/obj/
+TransactionMicroservices/BuyService/bin/
+TransactionMicroservices/BuyService/.vs/
+
