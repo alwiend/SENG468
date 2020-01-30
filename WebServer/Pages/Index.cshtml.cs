@@ -46,7 +46,7 @@ namespace WebServer.Pages
                 case "QUOTE":
                     if (args.Length == 3)
                     {
-                        Result = GetServiceResult(4445, $"{args[1]},{args[2]}");
+                        Result = GetServiceResult("quote_service", 44440, $"{args[1]},{args[2]}");
                     } else
                     {
                         Result = "Usage: QUOTE,userid,stock";
@@ -54,8 +54,32 @@ namespace WebServer.Pages
                     break;
                 case "ADD":
                 case "BUY":
+                    if (args.Length == 4)
+                    {
+                        Result = GetServiceResult("buy_service", 44442, $"{args[1]},{args[2]},{args[3]}");
+                    } else
+                    {
+                        Result = "Usage: BUY,userid,stock,amount";
+                    }
+                    break;
                 case "COMMIT_BUY":
+                    if (args.Length == 2)
+                    {
+                        Result = GetServiceResult("buy_service",44443, $"{args[1]}");
+                    } else
+                    {
+                        Result = "Usage: COMMIT_BUY, userid";
+                    }
+                    break;
                 case "CANCEL_BUY":
+                    if (args.Length == 2)
+                    {
+                        Result = GetServiceResult("buy_service", 44444, $" {args[1]}");
+                    } else
+                    {
+                        Result = "Usage: CANCEL_BUY, userid";
+                    }
+                    break;
                 case "SELL":
                 case "COMMIT_SELL":
                 case "CANCEL_SELL":
@@ -78,13 +102,13 @@ namespace WebServer.Pages
         /*
          * @Param service The port for the service to connect to
          */
-        static string GetServiceResult(int service, string command)
+        static string GetServiceResult(string service, int port, string command)
         {
             string result = "";
             try
             {
                 IPAddress ipAddr = IPAddress.Parse("172.1.0.11");
-                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, service);
+                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, port);
 
                 // Creation TCP/IP Socket using  
                 // Socket Class Costructor 

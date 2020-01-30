@@ -18,3 +18,8 @@ WebServer/obj/
 WebServer/bin/
 
 QuoteServer/.vs/
+
+TransactionMicroservices/BuyService/obj/
+TransactionMicroservices/BuyService/bin/
+TransactionMicroservices/BuyService/.vs/
+
