@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Collections.Generic;
 using Base;
+using Utilities;
 
 namespace BuyService
 {
@@ -30,15 +31,15 @@ namespace BuyService
             string stockCost = GetStock(stock);
 
             Console.Write($"Sending offer for {money} of {stock}");
-            int balance = 0;
+            object balance = "";
 
             try
             {
                 DB db = new DB();
 
-                balance = db.ExecuteQuery($"Select money FROM user WHERE user = {user}");
+                balance = db.Execute($"Select money FROM user WHERE user = {user}");
 
-                if (balance < 1)
+                if (Convert.ToInt32(balance) < 1)
                 {
                     return result = "Insufficient balance";
                 }
@@ -49,6 +50,8 @@ namespace BuyService
                 Console.WriteLine(e.ToString());
             }
 
+            double realBalance = Convert.ToDouble(balance) / 100;
+
             double numStock = Math.Floor(money / double.Parse(stockCost));
 
             if (numStock < 1)
@@ -57,7 +60,7 @@ namespace BuyService
             }
 
             double amount = numStock * double.Parse(stockCost); // amount to send to pending transactions
-            double leftover = balance - amount;
+            double leftover = realBalance - amount;
             leftover *= 100;
 
             DateTime timeStamp = DateTime.Now;

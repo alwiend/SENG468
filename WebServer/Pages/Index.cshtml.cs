@@ -11,10 +11,13 @@ using Microsoft.Extensions.Logging;
 
 namespace WebServer.Pages
 {
+    [IgnoreAntiforgeryToken(Order = 1001)]
     public class IndexModel : PageModel
     {
         private readonly ILogger<IndexModel> _logger;
-
+        private static string _transactionServerIPString = Environment.GetEnvironmentVariable("TransactionServerIP");
+        
+        //private static string _auditServerIP = Environment.GetEnvironmentVariable("AuditServerIP");
 
         [BindProperty]
         public string Command { get; set; }
@@ -25,6 +28,7 @@ namespace WebServer.Pages
         public IndexModel(ILogger<IndexModel> logger)
         {
             _logger = logger;
+            Console.WriteLine($"TransactionServerIP: {_transactionServerIPString}");
         }
 
         public void OnGet()
@@ -34,6 +38,7 @@ namespace WebServer.Pages
 
         public void OnPost()
         {
+            Console.WriteLine($"Command: {Command}");
             string[] args = Command.Split(",");
             if (args.Length == 0)
             {
@@ -53,6 +58,15 @@ namespace WebServer.Pages
                     }
                     break;
                 case "ADD":
+                    if (args.Length == 3)
+                    {
+                        Result = GetServiceResult("add_service", 44441, $"{args[1]},{args[2]}");
+                    }
+                    else
+                    {
+                        Result = "Usage: ADD,userid,money";
+                    }
+                    break;
                 case "BUY":
                     if (args.Length == 4)
                     {
@@ -104,10 +118,11 @@ namespace WebServer.Pages
          */
         static string GetServiceResult(string service, int port, string command)
         {
+            IPAddress[] addresslist = Dns.GetHostAddresses(service);
+            var ipAddr = addresslist.FirstOrDefault();
             string result = "";
             try
             {
-                IPAddress ipAddr = IPAddress.Parse("172.1.0.11");
                 IPEndPoint localEndPoint = new IPEndPoint(ipAddr, port);
 
                 // Creation TCP/IP Socket using  

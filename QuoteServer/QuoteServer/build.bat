@@ -1,11 +1,11 @@
 cd %~dp0
-dotnet publish QuoteServer.csproj /p:PublishProfile=FolderProfile
+dotnet publish -c Release QuoteServer.csproj /p:PublishProfile=FolderProfile
 
-docker stop quote_server
-docker rm quote_server
+docker stop quoteserve.seng.uvic.ca
+docker rm quoteserve.seng.uvic.ca
 docker rmi quote_server_image
 docker build -t quote_server_image -f Dockerfile .
-docker create --net day_trade_net --ip 172.1.0.10 --name quote_server quote_server_image
+docker create -p 4448:4448 --net day_trade_net --name quoteserve.seng.uvic.ca quote_server_image
 
 PAUSE
 EXIT

@@ -23,3 +23,8 @@ TransactionMicroservices/BuyService/obj/
 TransactionMicroservices/BuyService/bin/
 TransactionMicroservices/BuyService/.vs/
 
+DatabaseServer/data/db/
+TransactionMicroservices/Utilities/obj/
+TransactionMicroservices/Utilities/bin/
+TransactionMicroservices/AddService/bin/
+TransactionMicroservices/AddService/obj/
