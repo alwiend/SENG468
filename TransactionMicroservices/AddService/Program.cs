@@ -1,11 +1,13 @@
 ﻿// Connects to Quote Server and returns quote
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Base;
-using Utilities;
+using Database;
+using Newtonsoft.Json;
 
 namespace AddService
 {
@@ -14,29 +16,36 @@ namespace AddService
     {
         public static void Main(string[] args)
         {
-            new AddService().StartService();
+            var add_service = new AddService();
+            add_service.StartService(add_service.AddMoney);
         }
 
-        public AddService() : base(AddMoney, 44441)
+        public AddService() : base(44441)
         {
         }
 
         // ExecuteClient() Method 
-        static string AddMoney(string user_money)
+        string AddMoney(string user_money)
         {
-            string result = "";
+            string result;
             string[] args = user_money.Split(",");
             string user = args[0];
-            int money = args[1].Contains(".") ? (int)(double.Parse(args[1])*100) : int.Parse(args[1]);
-            Console.WriteLine($"Inserting {money} cents into {user}'s account");
+            int money = (int)(double.Parse(args[1])*100);
+            Auditor.WriteLine($"Inserting {money} cents into {user}'s account");
             try
             {
-                DB db = new DB();
-                
+                MySQL db = new MySQL();
+                var hasUser = db.Execute($"SELECT userid, money FROM user WHERE userid='{user}'");
+                var userObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
+                string query = $"INSERT INTO user (userid, money) VALUES ('{user}',{money})";
+                if (userObject.Length > 0)
+                {
+                    query = $"UPDATE user SET money={money} WHERE userid='{user}'";
+                }
 
-                db.ExecuteNonQuery($"INSERT INTO user (userid, money) VALUES ('{user}',{money})");
-                result = $"Successfully inserted {money} cents into {user}'s account";
-                Console.WriteLine(result);
+                db.ExecuteNonQuery(query);
+                result = $"Successfully added {money} cents into {user}'s account";
+                Auditor.WriteLine(result);
             }
             catch (Exception e)
             {

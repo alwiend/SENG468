@@ -5,7 +5,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Base;
-using Utilities;
 
 namespace QuoteService
 {
@@ -14,15 +13,16 @@ namespace QuoteService
     {
         public static void Main(string[] args)
         {
-            new QuoteService().StartService();
+            var quote_service = new QuoteService();
+            quote_service.StartService(quote_service.RequestQuote);
         }
 
-        public QuoteService(): base(RequestQuote, 44440)
+        public QuoteService(): base(44440)
         {
         }
 
         // ExecuteClient() Method 
-        static string RequestQuote(string quote)
+        string RequestQuote(string quote)
         {
             string cost = "";
             try
@@ -65,7 +65,8 @@ namespace QuoteService
                     int byteRecv = sender.Receive(quoteReceived);
                     cost = Encoding.ASCII.GetString(quoteReceived,
                                                      0, byteRecv);
-                    Console.WriteLine($"Quote: {quote}\nCost: ${cost}");
+                    Auditor.WriteLine($"Quote request: {quote}");
+                    Auditor.WriteLine($"Quote received: {quote} : Cost: ${cost}");
 
                     // Close Socket using  
                     // the method Close() 
