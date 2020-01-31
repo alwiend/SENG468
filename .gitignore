@@ -24,3 +24,14 @@ TransactionMicroservices/Utilities/bin/
 TransactionMicroservices/AddService/bin/
 *.user
 TransactionMicroservices/AddService/obj/
+AuditServer/bin/
+Common/.vs/
+TransactionMicroservices/Database/obj/
+AuditServer/obj/
+Common/Constants/obj/
+AuditServer/.vs/
+Common/BaseService/
+Common/Constants/bin/
+Common/Utilities/bin/
+Common/Utilities/obj/
+TransactionMicroservices/Database/bin/

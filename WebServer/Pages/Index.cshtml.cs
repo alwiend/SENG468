@@ -5,9 +5,11 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using Constants;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
+using Utilities;
 
 namespace WebServer.Pages
 {
@@ -15,9 +17,7 @@ namespace WebServer.Pages
     public class IndexModel : PageModel
     {
         private readonly ILogger<IndexModel> _logger;
-        private static string _transactionServerIPString = Environment.GetEnvironmentVariable("TransactionServerIP");
-        
-        //private static string _auditServerIP = Environment.GetEnvironmentVariable("AuditServerIP");
+        private AuditWriter _writer;
 
         [BindProperty]
         public string Command { get; set; }
@@ -28,7 +28,7 @@ namespace WebServer.Pages
         public IndexModel(ILogger<IndexModel> logger)
         {
             _logger = logger;
-            Console.WriteLine($"TransactionServerIP: {_transactionServerIPString}");
+            _writer = new AuditWriter();
         }
 
         public void OnGet()
@@ -38,7 +38,7 @@ namespace WebServer.Pages
 
         public void OnPost()
         {
-            Console.WriteLine($"Command: {Command}");
+            _writer.WriteLine($"Command: {Command}");
             string[] args = Command.Split(",");
             if (args.Length == 0)
             {
@@ -51,7 +51,7 @@ namespace WebServer.Pages
                 case "QUOTE":
                     if (args.Length == 3)
                     {
-                        Result = GetServiceResult("quote_service", 44440, $"{args[1]},{args[2]}");
+                        Result = GetServiceResult(Service.QUOTE_SERVICE, $"{args[1]},{args[2]}");
                     } else
                     {
                         Result = "Usage: QUOTE,userid,stock";
@@ -60,11 +60,21 @@ namespace WebServer.Pages
                 case "ADD":
                     if (args.Length == 3)
                     {
-                        Result = GetServiceResult("add_service", 44441, $"{args[1]},{args[2]}");
+                        Result = GetServiceResult(Service.ADD_SERVICE, $"{args[1]},{args[2]}");
                     }
                     else
                     {
                         Result = "Usage: ADD,userid,money";
+                    }
+                    break;
+                case "DUMPLOG":
+                    if (args.Length == 1)
+                    {
+                        Result = GetServiceResult(Server.AUDIT_SERVER, $"{args[0]}");
+                    }
+                    else
+                    {
+                        Result = "Usage: DUMPLOG";
                     }
                     break;
                 case "BUY":
@@ -79,7 +89,6 @@ namespace WebServer.Pages
                 case "SET_SELL_AMOUNT":
                 case "SET_SELL_TRIGGER":
                 case "CANCEL_SET_SELL":
-                case "DUMPLOG":
                 case "DISPLAY_SUMMARY":
                     Result = "Not Yet Implemented";
                     break;
@@ -92,14 +101,13 @@ namespace WebServer.Pages
         /*
          * @Param service The port for the service to connect to
          */
-        static string GetServiceResult(string service, int port, string command)
+        string GetServiceResult(ServiceConstant sc, string command)
         {
-            IPAddress[] addresslist = Dns.GetHostAddresses(service);
-            var ipAddr = addresslist.FirstOrDefault();
+            var ipAddr = Dns.GetHostAddresses(sc.Name).FirstOrDefault();
             string result = "";
             try
             {
-                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, port);
+                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, sc.Port);
 
                 // Creation TCP/IP Socket using  
                 // Socket Class Costructor 
@@ -114,8 +122,7 @@ namespace WebServer.Pages
 
                     // We print EndPoint information  
                     // that we are connected 
-                    Console.WriteLine("Socket connected to -> {0} ",
-                                  sender.RemoteEndPoint.ToString());
+                    _writer.WriteLine($"Socket connected to -> {sender.RemoteEndPoint.ToString()} ");
 
                     // Creation of message that 
                     // we will send to Server 
@@ -132,7 +139,7 @@ namespace WebServer.Pages
                     int byteRecv = sender.Receive(quoteReceived);
                     result = Encoding.ASCII.GetString(quoteReceived,
                                                      0, byteRecv);
-                    Console.WriteLine($"Command: {command}\nResult: ${result}");
+                    _writer.WriteLine($"Command: {command}\nResult: ${result}");
 
                     // Close Socket using  
                     // the method Close() 
@@ -144,25 +151,25 @@ namespace WebServer.Pages
                 catch (ArgumentNullException ane)
                 {
 
-                    Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
+                    _writer.WriteLine($"ArgumentNullException : {ane.ToString()}");
                 }
 
                 catch (SocketException se)
                 {
 
-                    Console.WriteLine("SocketException : {0}", se.ToString());
+                    _writer.WriteLine($"SocketException : {se.ToString()}");
                 }
 
                 catch (Exception e)
                 {
-                    Console.WriteLine("Unexpected exception : {0}", e.ToString());
+                    _writer.WriteLine($"Unexpected exception : {e.ToString()}");
                 }
             }
 
             catch (Exception e)
             {
 
-                Console.WriteLine(e.ToString());
+                _writer.WriteLine(e.ToString());
             }
             return result;
         }

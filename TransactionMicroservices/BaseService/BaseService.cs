@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
+using Utilities;
 
 namespace Base
 {
@@ -12,14 +13,14 @@ namespace Base
 
 	public abstract class BaseService
 	{
+		public AuditWriter Auditor { get; }
 		IPEndPoint _localEndPoint;
 		Socket _listener;
 		bool _running;
 		public DataReceivedEvent DataReceived;
 
-		public BaseService(DataReceivedEvent dr, int port)
+		public BaseService(int port)
 		{
-			DataReceived += dr;
 
 			// Establish the local endpoint 
 			// for the socket. Dns.GetHostName 
@@ -33,10 +34,12 @@ namespace Base
 			// Socket Class Costructor 
 			_listener = new Socket(ipAddr.AddressFamily,
 						SocketType.Stream, ProtocolType.Tcp);
+			Auditor = new AuditWriter();
 		}
 
-		public void StartService(int maxClients = 10)
+		public void StartService(DataReceivedEvent dr, int maxClients = 10)
 		{
+			DataReceived += dr;
 			try
 			{
 				// Using Bind() method we associate a 
