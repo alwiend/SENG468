@@ -13,7 +13,8 @@ namespace Constants
         public static ServiceConstant QUOTE_SERVICE = new ServiceConstant("quote_service", 44440);
         public static ServiceConstant ADD_SERVICE = new ServiceConstant("add_service", 44441);
         public static ServiceConstant BUY_SERVICE = new ServiceConstant("buy_service", 44442);
-        public static ServiceConstant BUY_CANCEL_SERVICE = new ServiceConstant("buy_service", 44443);
+        public static ServiceConstant BUY_COMMIT_SERVICE = new ServiceConstant("buy_service", 44443);
+        public static ServiceConstant BUY_CANCEL_SERVICE = new ServiceConstant("buy_service", 44444);
 
     }
     public class ServiceConstant
