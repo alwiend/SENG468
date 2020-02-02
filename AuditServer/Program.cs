@@ -26,35 +26,35 @@ namespace AuditServer
 			UserCommandType command = null;
 			try
 			{
-				using (StreamReader server_in = new StreamReader(client.GetStream()))
-				{
-					XmlSerializer serializer = new XmlSerializer(typeof(LogType));
-					var log_in = (LogType)serializer.Deserialize(server_in);
+				XmlSerializer serializer = new XmlSerializer(typeof(LogType));
+				using StreamReader server_in = new StreamReader(client.GetStream());
+				var log_in = (LogType)serializer.Deserialize(server_in);
 
-					using (StreamWriter server_out = new StreamWriter(client.GetStream()) { AutoFlush = false })
+				for (int i = 0; i < log_in.Items.Length; i++)
+				{
+					var record = log_in.Items[i];
+					Log.Add(record);
+					if (record.GetType() == typeof(UserCommandType))
 					{
-						for (int i = 0; i < log_in.Items.Length; i++)
+						command = (UserCommandType)record;
+						if (command.command == commandType.DUMPLOG)
 						{
-							var record = log_in.Items[i];
-							Log.Add(record);
-							if (record.GetType() == typeof(UserCommandType))
+							LogType logs = new LogType
 							{
-								command = (UserCommandType)record;
-								if (command.command == commandType.DUMPLOG)
-								{
-									LogType logs = new LogType
-									{
-										Items = Log.ToArray()
-									};
-									serializer.Serialize(server_out, logs);
-								}
-							}
+								Items = Log.ToArray()
+							};
+
+							var path = Path.Combine(Directory.GetCurrentDirectory(), command.filename);
+
+							FileStream file = File.Create(path);
+
+							serializer.Serialize(file, logs);
+							file.Close();
 						}
-						server_out.Write("");
-						server_out.Flush();
 					}
 				}
 				client.Close();
+				client.Dispose();
 			}
 
 			catch (Exception e)
@@ -84,18 +84,14 @@ namespace AuditServer
 			// Creation TCP/IP Socket using 
 			// Socket Class Costructor 
 			TcpListener listener = new TcpListener(localEndPoint);
-				listener.Start(100);
+			listener.Start(100);
 
-				while (true)
-				{
-					// Suspend while waiting for 
-					// incoming connection Using 
-					// Accept() method the server 
-					// will accept connection of client 
-					TcpClient client = listener.AcceptTcpClient();
-					Thread thr = new Thread(new ThreadStart(() => ProcessIncoming(client)));
-					thr.Start();
-				}
+			while (true)
+			{
+				TcpClient client = listener.AcceptTcpClient();
+				Thread thr = new Thread(new ThreadStart(() => ProcessIncoming(client)));
+				thr.Start();
+			}
 		}
 	}
 }

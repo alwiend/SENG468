@@ -6,8 +6,10 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Base;
+using Constants;
 using Database;
 using Newtonsoft.Json;
+using Utilities;
 
 namespace AddService
 {
@@ -16,36 +18,51 @@ namespace AddService
     {
         public static void Main(string[] args)
         {
-            var add_service = new AddService();
-            add_service.StartService(add_service.AddMoney);
+            var add_service = new AddService(Service.ADD_SERVICE, new AuditWriter());
+            add_service.StartService();
         }
 
-        public AddService() : base(44441)
+        public AddService (ServiceConstant sc, IAuditWriter aw) : base(sc, aw)
         {
+            DataReceived = AddMoney;
+        }
+
+        void LogTransactionEvent(UserCommandType command)
+        {
+            AccountTransactionType transaction = new AccountTransactionType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                action = "add",
+                username = command.username,
+                funds = command.funds
+            };
+            Auditor.WriteRecord(transaction);
         }
 
         // ExecuteClient() Method 
-        string AddMoney(string user_money)
+        object AddMoney(UserCommandType command)
         {
             string result;
-            string[] args = user_money.Split(",");
-            string user = args[0];
-            int money = (int)(double.Parse(args[1])*100);
-            Auditor.WriteLine($"Inserting {money} cents into {user}'s account");
             try
             {
                 MySQL db = new MySQL();
-                var hasUser = db.Execute($"SELECT userid, money FROM user WHERE userid='{user}'");
+                var hasUser = db.Execute($"SELECT userid, money FROM user WHERE userid='{command.username}'");
                 var userObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
-                string query = $"INSERT INTO user (userid, money) VALUES ('{user}',{money})";
+                string query = $"INSERT INTO user (userid, money) VALUES ('{command.username}',{command.funds})";
+                long funds = (long)(command.funds * 100);
                 if (userObject.Length > 0)
                 {
-                    query = $"UPDATE user SET money={money} WHERE userid='{user}'";
+                    funds += long.Parse(userObject[0]["money"]);
+                    query = $"UPDATE user SET money={funds} WHERE userid='{command.username}'";
                 }
 
                 db.ExecuteNonQuery(query);
-                result = $"Successfully added {money} cents into {user}'s account";
-                Auditor.WriteLine(result);
+                result = $"Successfully added {command.funds} into {command.username}'s account";
+                command.funds = Convert.ToDecimal(funds) / 100.0m;
+
+                LogTransactionEvent(command);
             }
             catch (Exception e)
             {

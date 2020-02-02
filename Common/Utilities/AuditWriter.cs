@@ -22,8 +22,8 @@ namespace Utilities
             {
                 // Creation TCP/IP Client to Audit Server
                 
-                IPAddress ipAddr = Dns.GetHostAddresses(Constants.Server.AUDIT_SERVER.Name).FirstOrDefault();
-                //var ipAddr = IPAddress.Loopback; Local Testing
+                IPAddress ipAddr = Dns.GetHostAddresses(Constants.Server.AUDIT_SERVER.ServiceName).FirstOrDefault();
+                //var ipAddr = IPAddress.Loopback; //Local Testing
                 IPEndPoint localEndPoint = new IPEndPoint(ipAddr, Constants.Server.AUDIT_SERVER.Port);
 
                 TcpClient client = new TcpClient(AddressFamily.InterNetwork);
@@ -31,28 +31,17 @@ namespace Utilities
 
                 try
                 {
-                    StreamWriter client_out = new StreamWriter(client.GetStream())
-                    {
-                        AutoFlush = false
-                    };
-                    StreamReader client_in = new StreamReader(client.GetStream());
-
                     LogType log = new LogType
                     {
                         Items = new object[] { record }
                     };
                     XmlSerializer serializer = new XmlSerializer(typeof(LogType));
-
-                    // XML Serialize the log
-                    serializer.Serialize(client_out, log);
-                    client_out.Flush();
-                    // Shutdown Clientside sending to signal end of stream
-                    // Get result
-                    client.Client.Shutdown(SocketShutdown.Send);
-                    result = client_in.ReadToEnd();
-
-                    client_out.Close();
-                    client_in.Close();
+                    using (StreamWriter client_out = new StreamWriter(client.GetStream()))
+                    {
+                        serializer.Serialize(client_out, log);
+                        // Shutdown Clientside sending to signal end of stream
+                        client.Client.Shutdown(SocketShutdown.Both);
+                    }
                 }
 
                 // Manage of Socket's Exceptions 
@@ -73,6 +62,7 @@ namespace Utilities
                     Console.WriteLine("Unexpected exception : {0}", e.ToString());
                 }
                 client.Close();
+                client.Dispose();
             }
             catch (Exception ex)
             {
