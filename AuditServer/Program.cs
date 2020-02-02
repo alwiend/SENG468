@@ -8,92 +8,94 @@ using System.Linq;
 using System.Xml.Linq;
 using System.Xml.Serialization;
 using System.IO;
+using System.Threading;
 
 namespace AuditServer
 {
 	class Program
 	{
-
+		private static List<object> Log { get; set; }
 		// Main Method 
 		static void Main(string[] args)
 		{
 			ExecuteServer();
 		}
 
+		private static void ProcessIncoming(TcpClient client)
+		{
+			UserCommandType command = null;
+			try
+			{
+				using (StreamReader server_in = new StreamReader(client.GetStream()))
+				{
+					XmlSerializer serializer = new XmlSerializer(typeof(LogType));
+					var log_in = (LogType)serializer.Deserialize(server_in);
+
+					using (StreamWriter server_out = new StreamWriter(client.GetStream()) { AutoFlush = false })
+					{
+						for (int i = 0; i < log_in.Items.Length; i++)
+						{
+							var record = log_in.Items[i];
+							Log.Add(record);
+							if (record.GetType() == typeof(UserCommandType))
+							{
+								command = (UserCommandType)record;
+								if (command.command == commandType.DUMPLOG)
+								{
+									LogType logs = new LogType
+									{
+										Items = Log.ToArray()
+									};
+									serializer.Serialize(server_out, logs);
+								}
+							}
+						}
+						server_out.Write("");
+						server_out.Flush();
+					}
+				}
+				client.Close();
+			}
+
+			catch (Exception e)
+			{
+				DebugType debugEvent = new DebugType
+				{
+					server = "ASVR1",
+					debugMessage = e.Message
+				};
+				if(command != null)
+				{
+					debugEvent.command = command.command;
+					debugEvent.transactionNum = command.transactionNum;
+					debugEvent.username = command.username;
+				}
+				Log.Add(debugEvent);
+			}
+
+		}
+
 		public static void ExecuteServer()
 		{
-			// A list of quotes
-			List<Record> records = new List<Record>();
+			Program.Log = new List<object>();
 
 			IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, 44439);
 
 			// Creation TCP/IP Socket using 
 			// Socket Class Costructor 
-			Socket listener = new Socket(IPAddress.Any.AddressFamily,
-						SocketType.Stream, ProtocolType.Tcp);
-
-			try
-			{
-
-				// Using Bind() method we associate a 
-				// network address to the Server Socket 
-				// All client that will connect to this 
-				// Server Socket must know this network 
-				// Address 
-				listener.Bind(localEndPoint);
-
-				// Using Listen() method we create 
-				// the Client list that will want 
-				// to connect to Server 
-				listener.Listen(10);
+			TcpListener listener = new TcpListener(localEndPoint);
+				listener.Start(100);
 
 				while (true)
 				{
-
-					Console.WriteLine($"Waiting connection on {localEndPoint.Address}:{localEndPoint.Port} address family {listener.AddressFamily}... ");
-
 					// Suspend while waiting for 
 					// incoming connection Using 
 					// Accept() method the server 
 					// will accept connection of client 
-					Socket clientSocket = listener.Accept();
-
-					Console.WriteLine("Client connected");
-
-					// Data buffer 
-					byte[] bytes = new Byte[1024];
-
-					// Message expected to just receive quote name
-					// Quote names are case sensitive for simplicity
-					int numByte = clientSocket.Receive(bytes);
-					Record record = new Record() { Message = Encoding.ASCII.GetString(bytes, 0, numByte) };
-
-					if (record.Message == "DUMPLOG")
-					{
-						XmlSerializer xmlSerializer = new XmlSerializer(typeof(Record[]));
-						using StringWriter textWriter = new StringWriter();
-						xmlSerializer.Serialize(textWriter, records.ToArray());
-						clientSocket.Send(Encoding.ASCII.GetBytes(textWriter.ToString()));
-					} else
-					{
-						Console.WriteLine($"{record.RecordTime}: {record.Message}");
-						records.Add(record);
-					}
-
-
-					// Close client Socket using the 
-					// Close() method. After closing, 
-					// we can use the closed Socket 
-					// for a new Client Connection 
-					clientSocket.Shutdown(SocketShutdown.Both);
-					clientSocket.Close();
+					TcpClient client = listener.AcceptTcpClient();
+					Thread thr = new Thread(new ThreadStart(() => ProcessIncoming(client)));
+					thr.Start();
 				}
-			}
-
-			catch (Exception e)
-			{
-				Console.WriteLine(e.ToString());
-			}
 		}
 	}
 }
