@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 using Constants;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -16,8 +18,8 @@ namespace WebServer.Pages
     [IgnoreAntiforgeryToken(Order = 1001)]
     public class IndexModel : PageModel
     {
-        private readonly ILogger<IndexModel> _logger;
-        private AuditWriter _writer;
+        private readonly GlobalTransaction _globalTransaction;
+        private readonly IAuditWriter _writer;
 
         [BindProperty]
         public string Command { get; set; }
@@ -25,10 +27,10 @@ namespace WebServer.Pages
         [BindProperty]
         public string Result { get; set; }
 
-        public IndexModel(ILogger<IndexModel> logger)
+        public IndexModel(GlobalTransaction gt, IAuditWriter aw)
         {
-            _logger = logger;
-            _writer = new AuditWriter();
+            _globalTransaction = gt;
+            _writer = aw;
         }
 
         public void OnGet()
@@ -38,82 +40,114 @@ namespace WebServer.Pages
 
         public void OnPost()
         {
-            _writer.WriteLine($"Command: {Command}");
-            string[] args = Command.Split(",");
+            string[] args = Array.ConvertAll(Command.Split(','), p => p.Trim()); ;
             if (args.Length == 0)
             {
                 Result = "Please enter a command";
                 return;
             }
-            
-            switch (args[0].ToUpper())
+            if (!Enum.TryParse(typeof(commandType), args[0].ToUpper(), out object ct))
             {
-                case "QUOTE":
+                Result = "Invalid command";
+                return;
+            }
+
+            UserCommandType userCommand = new UserCommandType
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = Server.WEB_SERVER.Abbr,
+                command = (commandType)ct,
+                transactionNum = _globalTransaction.Count.ToString()
+            };
+
+            switch (userCommand.command)
+            {
+                case commandType.QUOTE:
                     if (args.Length == 3)
                     {
-                        Result = GetServiceResult(Service.QUOTE_SERVICE, $"{args[1]},{args[2]}");
-                    } else
+                        userCommand.stockSymbol = args[2];
+                        userCommand.username = args[1];
+                        Result = GetServiceResult(Service.QUOTE_SERVICE, userCommand);
+                    }
+                    else
                     {
                         Result = "Usage: QUOTE,userid,stock";
                     }
                     break;
-                case "ADD":
+                case commandType.ADD:
                     if (args.Length == 3)
                     {
-                        Result = GetServiceResult(Service.ADD_SERVICE, $"{args[1]},{args[2]}");
+                        userCommand.fundsSpecified = true;
+                        userCommand.funds = Convert.ToDecimal(args[2]);
+                        userCommand.username = args[1];
+                        Result = GetServiceResult(Service.ADD_SERVICE, userCommand);
                     }
                     else
                     {
                         Result = "Usage: ADD,userid,money";
                     }
                     break;
-                case "DUMPLOG":
-                    if (args.Length == 1)
+                case commandType.DUMPLOG:
+                    if (args.Length == 2)
                     {
-                        Result = GetServiceResult(Server.AUDIT_SERVER, $"{args[0]}");
+                        userCommand.filename = args[1];
+                        _writer.WriteRecord(userCommand);
+                    }
+                    else if (args.Length == 3)
+                    {
+                        userCommand.username = args[1];
+                        userCommand.filename = args[2];
+                        _writer.WriteRecord(userCommand);
                     }
                     else
                     {
-                        Result = "Usage: DUMPLOG";
+                        Result = "Usage: DUMPLOG, userid, filename\nDUMPLOG filename";
                     }
                     break;
-                case "BUY":
+                case commandType.BUY:
                     if (args.Length == 4)
                     {
-                        Result = GetServiceResult(Service.BUY_SERVICE, $"{args[1]},{args[2]},{args[3]}");
+                        userCommand.fundsSpecified = true;
+                        userCommand.funds = Convert.ToDecimal(args[3]);
+                        userCommand.username = args[1];
+                        userCommand.stockSymbol = args[2];
+                        Result = GetServiceResult(Service.BUY_SERVICE, userCommand);
                     } else
                     {
                         Result = "Usage: BUY,userid,stock,amount";
                     }
                     break;
-                case "COMMIT_BUY":
+                case commandType.COMMIT_BUY:
                     if (args.Length == 2)
                     {
-                        Result = GetServiceResult(Service.BUY_COMMIT_SERVICE, $"{args[1]}");
+                        userCommand.username = args[1];
+                        Result = GetServiceResult(Service.BUY_COMMIT_SERVICE, userCommand);
                     } else
                     {
-                        Result = "Usage: COMMIT_BUY, userid";
+                        Result = "Usage: COMMIT_BUY,userid";
                     }
                     break;
-                case "CANCEL_BUY":
+                case commandType.CANCEL_BUY:
                     if (args.Length == 2)
                     {
-                        Result = GetServiceResult(Service.BUY_CANCEL_SERVICE, $" {args[1]}");
+                        userCommand.username = args[1];
+                        Result = GetServiceResult(Service.BUY_CANCEL_SERVICE, userCommand);
                     } else
                     {
-                        Result = "Usage: CANCEL_BUY, userid";
+                        Result = "Usage: CANCEL_BUY,userid";
                     }
                     break;
-                case "SELL":
-                case "COMMIT_SELL":
-                case "CANCEL_SELL":
-                case "SET_BUY_AMOUNT":
-                case "CANCEL_SET_BUY":
-                case "SET_BUY_TRIGGER":
-                case "SET_SELL_AMOUNT":
-                case "SET_SELL_TRIGGER":
-                case "CANCEL_SET_SELL":
-                case "DISPLAY_SUMMARY":
+                case commandType.SELL:
+                case commandType.COMMIT_SELL:
+                case commandType.CANCEL_SELL:
+                case commandType.SET_BUY_AMOUNT:
+                case commandType.CANCEL_SET_BUY:
+                case commandType.SET_BUY_TRIGGER:
+                case commandType.SET_SELL_AMOUNT:
+                case commandType.SET_SELL_TRIGGER:
+                case commandType.CANCEL_SET_SELL:
+                case commandType.DISPLAY_SUMMARY:
+                    _writer.WriteRecord(userCommand);
                     Result = "Not Yet Implemented";
                     break;
                 default:
@@ -125,75 +159,64 @@ namespace WebServer.Pages
         /*
          * @Param service The port for the service to connect to
          */
-        string GetServiceResult(ServiceConstant sc, string command)
+        string GetServiceResult(ServiceConstant sc, UserCommandType userCommand)
         {
-            var ipAddr = Dns.GetHostAddresses(sc.Name).FirstOrDefault();
+            _writer.WriteRecord(userCommand);
             string result = "";
             try
             {
+                var ipAddr = Dns.GetHostAddresses(sc.ServiceName).FirstOrDefault();
+                //var ipAddr = IPAddress.Loopback;
                 IPEndPoint localEndPoint = new IPEndPoint(ipAddr, sc.Port);
-
-                // Creation TCP/IP Socket using  
-                // Socket Class Costructor 
-                Socket sender = new Socket(ipAddr.AddressFamily,
-                           SocketType.Stream, ProtocolType.Tcp);
+                TcpClient client = new TcpClient(AddressFamily.InterNetwork);
+                // Connect Socket to the remote  
+                // endpoint using method Connect() 
+                client.Connect(localEndPoint);
+                StreamWriter client_out = null;
+                StreamReader client_in = null;
 
                 try
                 {
-                    // Connect Socket to the remote  
-                    // endpoint using method Connect() 
-                    sender.Connect(localEndPoint);
+                    client_out = new StreamWriter(client.GetStream());
+                    client_in = new StreamReader(client.GetStream());
 
-                    // We print EndPoint information  
-                    // that we are connected 
-                    _writer.WriteLine($"Socket connected to -> {sender.RemoteEndPoint.ToString()} ");
-
-                    // Creation of message that 
-                    // we will send to Server 
-                    int byteSent = sender.Send(Encoding.ASCII.GetBytes(command));
-
-                    // Data buffer 
-                    byte[] quoteReceived = new byte[1024];
-
-                    // We receive the messagge using  
-                    // the method Receive(). This  
-                    // method returns number of bytes 
-                    // received, that we'll use to  
-                    // convert them to string 
-                    int byteRecv = sender.Receive(quoteReceived);
-                    result = Encoding.ASCII.GetString(quoteReceived,
-                                                     0, byteRecv);
-                    _writer.WriteLine($"Command: {command}\nResult: ${result}");
-
-                    // Close Socket using  
-                    // the method Close() 
-                    sender.Shutdown(SocketShutdown.Both);
-                    sender.Close();
+                    XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
+                    serializer.Serialize(client_out, userCommand);
+                    // Shutdown Clientside sending to signal end of stream
+                    client.Client.Shutdown(SocketShutdown.Send);
+                    result = client_in.ReadToEnd();
+                    client.Client.Shutdown(SocketShutdown.Receive);
                 }
 
                 // Manage of Socket's Exceptions 
                 catch (ArgumentNullException ane)
                 {
 
-                    _writer.WriteLine($"ArgumentNullException : {ane.ToString()}");
+                    Console.WriteLine($"ArgumentNullException : {ane.ToString()}");
                 }
 
                 catch (SocketException se)
                 {
 
-                    _writer.WriteLine($"SocketException : {se.ToString()}");
+                    Console.WriteLine($"SocketException : {se.ToString()}");
                 }
 
                 catch (Exception e)
                 {
-                    _writer.WriteLine($"Unexpected exception : {e.ToString()}");
+                    Console.WriteLine($"Unexpected exception : {e.ToString()}");
                 }
+                finally
+                {
+                    client_out.Close();
+                    client_in.Close();
+                }
+                client.Close();
+                client.Dispose();
             }
-
             catch (Exception e)
             {
 
-                _writer.WriteLine(e.ToString());
+                Console.WriteLine(e.ToString());
             }
             return result;
         }

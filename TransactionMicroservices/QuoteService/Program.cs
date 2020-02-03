@@ -1,10 +1,13 @@
 ﻿// Connects to Quote Server and returns quote
 using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Base;
+using Constants;
+using Utilities;
 
 namespace QuoteService
 {
@@ -13,65 +16,56 @@ namespace QuoteService
     {
         public static void Main(string[] args)
         {
-            var quote_service = new QuoteService();
-            quote_service.StartService(quote_service.RequestQuote);
+            var quote_service = new QuoteService(Service.QUOTE_SERVICE, new AuditWriter());
+            quote_service.StartService();
         }
 
-        public QuoteService(): base(44440)
+        public QuoteService(ServiceConstant sc, IAuditWriter aw): base(sc, aw)
         {
+            DataReceived = RequestQuote;
+        }
+
+        string LogQuoteServerEvent(UserCommandType command, string quote)
+        {
+            QuoteServerType stockQuote = new QuoteServerType()
+            {
+                username = command.username,
+                server = Server.QUOTE_SERVER.Abbr,
+                price = decimal.Parse(quote),
+                transactionNum = command.transactionNum,
+                stockSymbol = command.stockSymbol,
+                timestamp = Unix.TimeStamp.ToString(),
+                quoteServerTime = Unix.TimeStamp.ToString(),
+                cryptokey = ""
+            };
+            Auditor.WriteRecord(stockQuote);
+            return stockQuote.price.ToString();
         }
 
         // ExecuteClient() Method 
-        string RequestQuote(string quote)
+        object RequestQuote(UserCommandType command)
         {
             string cost = "";
             try
             {
                 // Establish the remote endpoint  
-                // for the socketstring howtogeek = "www.google.com";
-                IPAddress[] addresslist = Dns.GetHostAddresses("quoteserve.seng.uvic.ca");
-                var ipAddr = addresslist.FirstOrDefault();
-                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, 4448);
+                var ipAddr = Dns.GetHostAddresses(Server.QUOTE_SERVER.ServiceName).FirstOrDefault();
+                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, Server.QUOTE_SERVER.Port);
 
-                // Creation TCP/IP Socket using  
-                // Socket Class Costructor 
-                Socket sender = new Socket(ipAddr.AddressFamily,
-                           SocketType.Stream, ProtocolType.Tcp);
-
+                TcpClient client = new TcpClient(AddressFamily.InterNetwork);
+                client.Connect(localEndPoint);
+                StreamWriter client_out = null;
+                StreamReader client_in = null;
                 try
                 {
+                    client_out = new StreamWriter(client.GetStream());
+                    client_in = new StreamReader(client.GetStream());
 
-                    // Connect Socket to the remote  
-                    // endpoint using method Connect() 
-                    sender.Connect(localEndPoint);
-
-                    // We print EndPoint information  
-                    // that we are connected 
-                    Console.WriteLine("Socket connected to -> {0} ",
-                                  sender.RemoteEndPoint.ToString());
-
-                    // Creation of message that 
-                    // we will send to Server 
-                    int byteSent = sender.Send(Encoding.ASCII.GetBytes(quote));
-
-                    // Data buffer 
-                    byte[] quoteReceived = new byte[1024];
-
-                    // We receive the messagge using  
-                    // the method Receive(). This  
-                    // method returns number of bytes 
-                    // received, that we'll use to  
-                    // convert them to string 
-                    int byteRecv = sender.Receive(quoteReceived);
-                    cost = Encoding.ASCII.GetString(quoteReceived,
-                                                     0, byteRecv);
-                    Auditor.WriteLine($"Quote request: {quote}");
-                    Auditor.WriteLine($"Quote received: {quote} : Cost: ${cost}");
-
-                    // Close Socket using  
-                    // the method Close() 
-                    sender.Shutdown(SocketShutdown.Both);
-                    sender.Close();
+                    client_out.Write($"{command.stockSymbol},{command.username}");
+                    client.Client.Shutdown(SocketShutdown.Send);
+                    string quote = client_in.ReadToEnd();
+                    client.Client.Shutdown(SocketShutdown.Receive);
+                    cost = LogQuoteServerEvent(command, quote);
                 }
 
                 // Manage of Socket's Exceptions 
@@ -90,7 +84,9 @@ namespace QuoteService
                 catch (Exception e)
                 {
                     Console.WriteLine("Unexpected exception : {0}", e.ToString());
-                }
+                } 
+                client.Client.Close();
+                client.Dispose();
             }
 
             catch (Exception e)

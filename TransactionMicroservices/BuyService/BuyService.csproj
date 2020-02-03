@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BaseService\BaseService.csproj" />
-    <ProjectReference Include="..\Utilities\Utilities.csproj" />
+    <ProjectReference Include="..\Database\Database.csproj" />
   </ItemGroup>
 
   <ItemGroup>
