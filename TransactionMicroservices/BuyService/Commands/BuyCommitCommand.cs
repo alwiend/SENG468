@@ -45,8 +45,7 @@ namespace BuyService
                 int minTimeIndex = -1;
                 for (int i = 0; i < transObj.Length; i++)
                 {
-                    stock = transObj[i]["stock"];
-                    amount = double.Parse(transObj[i]["price"])/100;
+                    amount = double.Parse(transObj[i]["price"]) / 100;
                     long tTime = long.Parse(transObj[i]["transTime"]);
                     DateTimeOffset transTime = DateTimeOffset.FromUnixTimeSeconds(long.Parse(transObj[i]["transTime"])/1000);                    
                     double diff = (currTime - transTime).TotalSeconds; // find correct diff
@@ -71,17 +70,28 @@ namespace BuyService
 
                 if (minTimeIndex >= 0)
                 {
-                    db.ExecuteNonQuery($"INSERT INTO stocks (userid, stock, price) VALUES ('{command.username}', '{stock}', {amount*100})");
-                    db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND stock='{stock}' AND price={amount*100} AND trasType='BUY'");
-                    result = $"Successfully bought {amount} worth of {stock}.";
+
+                    stock = transObj[minTimeIndex]["stock"];
+                    amount = int.Parse(transObj[minTimeIndex]["price"]);
+
+                    var hasStock = db.Execute($"SELECT price FROM stocks WHERE userid='{command.username}' AND stock='{stock}'");
+                    var stockObj = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasStock);
+                    string query = $"INSERT INTO stocks (userid, stock, price) VALUES ('{command.username}', '{stock}', {amount})";
+                    if (stockObj.Length > 0)
+                    {
+                        query = $"UPDATE stocks SET price={amount + int.Parse(stockObj[0]["price"])} WHERE userid='{command.username}' AND stock='{stock}'";
+                    } 
+                    db.ExecuteNonQuery(query);
+                    db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND stock='{stock}' AND price={amount} AND transType='BUY'");
+                    result = $"Successfully bought ${amount/100} worth of {stock}.";
                 } else
                 {
-                    result = $"No transactions to buy.";
+                    result = $"No recent transactions to buy.";
                 }
             }
             catch (Exception e)
             {
-                result = $"Error occured getting account details.";
+                result = $"{e.ToString()} Error occured getting account details.";
                 Console.WriteLine(e.ToString());
             }
             // BuyCache.RemoveItems(user);

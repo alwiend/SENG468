@@ -64,7 +64,7 @@ namespace BuyService
                 // Store pending transaction
                 db.ExecuteNonQuery($"INSERT INTO transactions (userid, stock, price, transType, transTime) VALUES ('{command.username}','{command.stockSymbol}',{amount},'BUY','{Unix.TimeStamp.ToString()}')");
 
-                result = $"{numStock} stock is available for purchase at {stockCost} per share totalling {amount/100}.";
+                result = $"{numStock} stock is available for purchase at {stockCost} per share totalling {String.Format("{0:0.00}", amount/100)}.";
 
                 // Update the amount in user account
                 db.ExecuteNonQuery($"UPDATE user SET money = {leftover} WHERE userid='{command.username}'");

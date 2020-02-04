@@ -69,10 +69,13 @@ namespace BuyService
                 
                 if (minTimeIndex >= 0)
                 {
-                    int newB = Convert.ToInt32(userBalance[0]["money"]) + (int)(amount*100);
+                    amount = int.Parse(stockObj[minTimeIndex]["price"]);
+                    string stock = stockObj[minTimeIndex]["stock"];
+                    int newB = Convert.ToInt32(userBalance[0]["money"]) + (int)(amount);
                     db.ExecuteNonQuery($"UPDATE user SET money={newB} WHERE userid='{command.username}'");
                     result = $"Successfully canceled most recent buy command.\n" +
                         $"Your new balance is {newB/100}";
+                    db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND stock='{stock}' AND price={amount} AND transType='BUY'");
                 } else
                 {
                     result = "No transactions to cancel.";
