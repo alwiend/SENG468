@@ -1,78 +1,47 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
+using System.Xml.Serialization;
 
 namespace Utilities
 {
-    public class AuditWriter
+    public class AuditWriter : IAuditWriter
     {
-        readonly Socket sender;
-
-        public AuditWriter()
-        {
-            try
-            {
-                // Creation TCP/IP Socket to Audit Server
-                // using Socket Class Costructor 
-                IPAddress ipAddr = Dns.GetHostAddresses(Constants.Server.AUDIT_SERVER.Name).FirstOrDefault();
-                sender = new Socket(ipAddr.AddressFamily,
-                       SocketType.Stream, ProtocolType.Tcp);
-                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, Constants.Server.AUDIT_SERVER.Port);
-
-                // Connect Socket to the remote  
-                // endpoint using method Connect() 
-                sender.Connect(localEndPoint);
-
-                // We print EndPoint information  
-                // that we are connected 
-                Console.WriteLine("Socket connected to -> {0} ",
-                              sender.RemoteEndPoint.ToString());
-            } catch (Exception ex)
-            {
-
-            }
-        }
-
-        // Deconstructor to close port connection
-        ~AuditWriter()
-        {
-            try
-            {
-                // Close Socket using  
-                // the method Close() 
-                sender.Shutdown(SocketShutdown.Both);
-                sender.Close();
-            } catch (Exception ex)
-            {
-
-            }
-        }
-
-        public string WriteLine(string message)
+        /*
+         * @param record The event to pass to the Audit server
+         */
+        public string WriteRecord(object record)
         {
             string result = "";
 
+            try
+            {
+                // Creation TCP/IP Client to Audit Server
+                
+                IPAddress ipAddr = Dns.GetHostAddresses(Constants.Server.AUDIT_SERVER.ServiceName).FirstOrDefault();
+                //var ipAddr = IPAddress.Loopback; //Local Testing
+                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, Constants.Server.AUDIT_SERVER.Port);
+
+                TcpClient client = new TcpClient(AddressFamily.InterNetwork);
+                client.Connect(localEndPoint);
+
                 try
                 {
-
-                    // Creation of message that 
-                    // we will send to Server 
-                    int byteSent = sender.Send(Encoding.ASCII.GetBytes(message));
-
-                    // Data buffer 
-                    byte[] quoteReceived = new byte[1024];
-
-                    // We receive the messagge using  
-                    // the method Receive(). This  
-                    // method returns number of bytes 
-                    // received, that we'll use to  
-                    // convert them to string 
-                    int byteRecv = sender.Receive(quoteReceived);
-                    result = Encoding.ASCII.GetString(quoteReceived,
-                                                     0, byteRecv);
-
+                    LogType log = new LogType
+                    {
+                        Items = new object[] { record }
+                    };
+                    XmlSerializer serializer = new XmlSerializer(typeof(LogType));
+                    using (StreamWriter client_out = new StreamWriter(client.GetStream()))
+                    {
+                        serializer.Serialize(client_out, log);
+                        // Shutdown Clientside sending to signal end of stream
+                        client.Client.Shutdown(SocketShutdown.Both);
+                    }
                 }
 
                 // Manage of Socket's Exceptions 
@@ -92,7 +61,14 @@ namespace Utilities
                 {
                     Console.WriteLine("Unexpected exception : {0}", e.ToString());
                 }
-            
+                client.Close();
+                client.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to connect: {0}", ex.Message);
+            }
+
             return result;
         }
     }

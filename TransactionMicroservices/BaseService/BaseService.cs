@@ -6,98 +6,89 @@ using System.Text;
 using System.Collections.Generic;
 using System.Linq;
 using Utilities;
+using System.IO;
+using System.Xml.Serialization;
+using System.Threading;
+using Constants;
 
 namespace Base
 {
-	public delegate string DataReceivedEvent(string data);
+	public delegate object DataReceivedEvent(UserCommandType command);
 
 	public abstract class BaseService
 	{
-		public AuditWriter Auditor { get; }
-		IPEndPoint _localEndPoint;
-		Socket _listener;
-		bool _running;
-		public DataReceivedEvent DataReceived;
+		protected IAuditWriter Auditor { get; }
+		protected DataReceivedEvent DataReceived;
+		protected ServiceConstant ServiceDetails { get; }
 
-		public BaseService(int port)
+		public BaseService(ServiceConstant sc, IAuditWriter aw)
 		{
-
-			// Establish the local endpoint 
-			// for the socket. Dns.GetHostName 
-			// returns the name of the host 
-			// running the application. 
-			IPHostEntry ipHost = Dns.GetHostEntry(Dns.GetHostName());
-			IPAddress ipAddr = IPAddress.Any;
-			_localEndPoint = new IPEndPoint(ipAddr, port);
-
-			// Creation TCP/IP Socket using 
-			// Socket Class Costructor 
-			_listener = new Socket(ipAddr.AddressFamily,
-						SocketType.Stream, ProtocolType.Tcp);
-			Auditor = new AuditWriter();
+			ServiceDetails = sc;
+			Auditor = aw;
 		}
 
-		public void StartService(DataReceivedEvent dr, int maxClients = 10)
+		/*
+		 * Logs interserver communication
+		 * @param command The user command that is driving the process
+		 */
+		void LogServerEvent(UserCommandType command)
 		{
-			DataReceived += dr;
+			SystemEventType sysEvent = new SystemEventType()
+			{
+				timestamp = Unix.TimeStamp.ToString(),
+				server = ServiceDetails.Abbr,
+				transactionNum = command.transactionNum,
+				username = command.username,
+				fundsSpecified = command.fundsSpecified,
+				command = command.command,
+				filename = command.filename,
+				stockSymbol = command.stockSymbol
+			};
+			if (command.fundsSpecified)
+				sysEvent.funds = command.funds;
+			Auditor.WriteRecord(sysEvent);
+		}
+
+		private void ProcessIncoming(TcpClient client)
+		{
 			try
 			{
-				// Using Bind() method we associate a 
-				// network address to the Server Socket 
-				// All client that will connect to this 
-				// Server Socket must know this network 
-				// Address 
-				_listener.Bind(_localEndPoint);
+				XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
 
-				// Using Listen() method we create 
-				// the Client list that will want 
-				// to connect to Server 
-				_listener.Listen(maxClients);
-				_running = true;
-				while (_running)
-				{
-					Console.WriteLine($"Waiting connection on {_localEndPoint.Address}:{_localEndPoint.Port} address family {_listener.AddressFamily}... ");
+				using StreamReader client_in = new StreamReader(client.GetStream());
+				UserCommandType command = (UserCommandType)serializer.Deserialize(client_in);
+				LogServerEvent(command);
 
-					// Suspend while waiting for 
-					// incoming connection Using 
-					// Accept() method the server 
-					// will accept connection of client 
-					Socket clientSocket = _listener.Accept();
+				object retData = DataReceived(command).ToString();
 
-					Console.WriteLine("Client connected");
-
-					// Data buffer 
-					byte[] bytes = new Byte[1024];
-
-					// Message expected to just receive quote name
-					// Quote names are case sensitive for simplicity
-					int numByte = clientSocket.Receive(bytes);
-					string recData = Encoding.ASCII.GetString(bytes, 0, numByte);
-
-					string retData = DataReceived(recData);
-					
-					// Send a message to Client 
-					// using Send() method 
-					clientSocket.Send(Encoding.ASCII.GetBytes(retData.ToString()));
-
-					// Close client Socket using the 
-					// Close() method. After closing, 
-					// we can use the closed Socket 
-					// for a new Client Connection 
-					clientSocket.Shutdown(SocketShutdown.Both);
-					clientSocket.Close();
-				}
+				using StreamWriter client_out = new StreamWriter(client.GetStream());
+				client_out.Write(retData);
 			}
-
-			catch (Exception e)
+			catch (Exception ex)
 			{
-				Console.WriteLine(e.ToString());
+				Console.WriteLine(ex.Message);
+			}
+			finally
+			{
+				client.Close();
 			}
 		}
 
-		public void StopService()
+		public void StartService()
 		{
-			_running = false;
+			IPAddress ipAddr = IPAddress.Any;
+			IPEndPoint _localEndPoint = new IPEndPoint(ipAddr, ServiceDetails.Port);
+
+			TcpListener _listener = new TcpListener(_localEndPoint);
+			_listener.Start(100);
+			while (true)
+			{
+				Console.WriteLine($"Waiting connection on {_localEndPoint.Address}:{_localEndPoint.Port} ");
+
+				TcpClient client = _listener.AcceptTcpClient();
+				Thread thr = new Thread(new ThreadStart(() => ProcessIncoming(client)));
+				thr.Start();
+			}
 		}
 	}
 }

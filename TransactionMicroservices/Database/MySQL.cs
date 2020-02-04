@@ -11,7 +11,8 @@ namespace Database
 
         public string Execute(string command)
         {
-            string connetionString = "server=localhost;port=3306;database=db;uid=user;pwd=password;";
+            Console.WriteLine($"Execute: {command}");
+            string connetionString = "server=databaseserver_db_1;port=3306;database=db;uid=user;pwd=password;";
             MySqlConnection cnn = new MySqlConnection(connetionString);
             try
             {
@@ -60,7 +61,7 @@ namespace Database
 
         public string ExecuteNonQuery(string command)
         {
-            string connetionString = "server=localhost;port=3306;database=db;uid=user;pwd=password;";
+            string connetionString = "server=databaseserver_db_1;port=3306;database=db;uid=user;pwd=password;";
             MySqlConnection cnn = new MySqlConnection(connetionString);
             try
             {
