@@ -16,6 +16,8 @@ namespace Constants
         public readonly static ServiceConstant BUY_SERVICE = new ServiceConstant("buy_service", 44442, "BSVC1");
         public readonly static ServiceConstant BUY_CANCEL_SERVICE = new ServiceConstant("buy_service", 44443, "BSVC2");
         public readonly static ServiceConstant BUY_COMMIT_SERVICE = new ServiceConstant("buy_service", 44444, "BSVC3");
+        public readonly static ServiceConstant DISPLAY_SUMMARY_SERVICE = new ServiceConstant("display_summary_service", 44445, "DSCV1");
+
     }
 
     public class ServiceConstant

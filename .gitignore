@@ -39,3 +39,6 @@ Common/Constants/bin/
 Common/Utilities/bin/
 Common/Utilities/obj/
 TransactionMicroservices/Database/bin/
+
+TransactionMicroservices/DisplaySummaryService/bin/
+TransactionMicroservices/DisplaySummaryService/obj/

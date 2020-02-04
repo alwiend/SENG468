@@ -147,8 +147,16 @@ namespace WebServer.Pages
                 case commandType.SET_SELL_TRIGGER:
                 case commandType.CANCEL_SET_SELL:
                 case commandType.DISPLAY_SUMMARY:
-                    _writer.WriteRecord(userCommand);
-                    Result = "Not Yet Implemented";
+                    if (args.Length == 2)
+                    {
+                        userCommand.username = args[1];
+                        Result = GetServiceResult(Service.DISPLAY_SUMMARY_SERVICE, userCommand);
+                        
+                    } else
+                    {
+                        Result = "Usage: DISPLAY_SUMMARY,userid";
+                    }
+                    
                     break;
                 default:
                     Result = "Invalid Command";
