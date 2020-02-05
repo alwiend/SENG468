@@ -35,3 +35,6 @@ Common/Constants/bin/
 Common/Utilities/bin/
 Common/Utilities/obj/
 TransactionMicroservices/Database/bin/
+WorkloadGenerator/bin/
+WorkloadGenerator/.vs/
+WorkloadGenerator/obj/
