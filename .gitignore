@@ -42,3 +42,6 @@ TransactionMicroservices/Database/bin/
 
 TransactionMicroservices/DisplaySummaryService/bin/
 TransactionMicroservices/DisplaySummaryService/obj/
+
+TransactionMicroservices/SellService/bin/
+TransactionMicroservices/SellService/obj/

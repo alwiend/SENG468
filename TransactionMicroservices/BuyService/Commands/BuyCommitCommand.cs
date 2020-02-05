@@ -91,7 +91,7 @@ namespace BuyService
             }
             catch (Exception e)
             {
-                result = $"{e.ToString()} Error occured getting account details.";
+                result = $"Error occured getting account details.";
                 Console.WriteLine(e.ToString());
             }
             // BuyCache.RemoveItems(user);

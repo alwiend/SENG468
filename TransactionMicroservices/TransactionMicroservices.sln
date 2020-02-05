@@ -19,7 +19,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Utilities", "..\Common\Util
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Constants", "..\Common\Constants\Constants.csproj", "{B14F995C-AC42-4A3A-B425-B9D5777248A5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DisplaySummaryService", "DisplaySummaryService\DisplaySummaryService.csproj", "{38EB9E33-E66A-4470-A623-C4E93BA1162D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DisplaySummaryService", "DisplaySummaryService\DisplaySummaryService.csproj", "{38EB9E33-E66A-4470-A623-C4E93BA1162D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SellService", "SellService\SellService.csproj", "{74DA22DA-FA36-462D-97F7-7E9F071AEF70}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -63,6 +65,10 @@ Global
 		{38EB9E33-E66A-4470-A623-C4E93BA1162D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{38EB9E33-E66A-4470-A623-C4E93BA1162D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{38EB9E33-E66A-4470-A623-C4E93BA1162D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{74DA22DA-FA36-462D-97F7-7E9F071AEF70}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{74DA22DA-FA36-462D-97F7-7E9F071AEF70}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{74DA22DA-FA36-462D-97F7-7E9F071AEF70}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{74DA22DA-FA36-462D-97F7-7E9F071AEF70}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

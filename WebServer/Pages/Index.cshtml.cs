@@ -114,7 +114,7 @@ namespace WebServer.Pages
                         Result = GetServiceResult(Service.BUY_SERVICE, userCommand);
                     } else
                     {
-                        Result = "Usage: BUY,userid,stock,amount";
+                        Result = "Usage: BUY,userid,StockSymbol,amount";
                     }
                     break;
                 case commandType.COMMIT_BUY:
@@ -138,8 +138,38 @@ namespace WebServer.Pages
                     }
                     break;
                 case commandType.SELL:
+                    if (args.Length == 4)
+                    {
+                        userCommand.fundsSpecified = true;
+                        userCommand.funds = Convert.ToDecimal(args[3]);
+                        userCommand.username = args[1];
+                        userCommand.stockSymbol = args[2];
+                        Result = GetServiceResult(Service.SELL_SERVICE, userCommand);
+                    } else
+                    {
+                        Result = "Usage: SELL,userid,StockSymbol,amount";
+                    }
+                    break;
                 case commandType.COMMIT_SELL:
+                    if (args.Length == 2)
+                    {
+                        userCommand.username = args[1];
+                        Result = GetServiceResult(Service.SELL_COMMIT_SERVICE, userCommand);
+                    } else
+                    {
+                        Result = "Usage: COMMIT_SELL,userid";
+                    }
+                    break;
                 case commandType.CANCEL_SELL:
+                    if (args.Length == 2)
+                    {
+                        userCommand.username = args[1];
+                        Result = GetServiceResult(Service.SELL_CANCEL_SERVICE, userCommand);
+                    } else
+                    {
+                        Result = "Usage: CANCEL_SELL,userid";
+                    }
+                    break;
                 case commandType.SET_BUY_AMOUNT:
                 case commandType.CANCEL_SET_BUY:
                 case commandType.SET_BUY_TRIGGER:
@@ -155,8 +185,7 @@ namespace WebServer.Pages
                     } else
                     {
                         Result = "Usage: DISPLAY_SUMMARY,userid";
-                    }
-                    
+                    }                    
                     break;
                 default:
                     Result = "Invalid Command";
