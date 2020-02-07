@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Threading;
 
 namespace WebServer
 {
@@ -12,7 +10,7 @@ namespace WebServer
         {
             get
             {
-                return ++_count;
+                return Interlocked.Increment(ref _count);
             }
         }
     }
