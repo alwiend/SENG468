@@ -9,10 +9,4 @@
     <ProjectReference Include="..\BaseService\BaseService.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="System.Runtime.Caching">
-      <HintPath>..\..\..\..\..\..\..\..\Downloads\System.Runtime.Caching\System.Runtime.Caching.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
 </Project>
