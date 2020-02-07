@@ -45,3 +45,6 @@ TransactionMicroservices/DisplaySummaryService/obj/
 
 TransactionMicroservices/SellService/bin/
 TransactionMicroservices/SellService/obj/
+WorkloadGenerator/bin/
+WorkloadGenerator/.vs/
+WorkloadGenerator/obj/

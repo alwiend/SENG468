@@ -68,8 +68,7 @@ namespace WebServer.Pages
                         userCommand.stockSymbol = args[2];
                         userCommand.username = args[1];
                         Result = GetServiceResult(Service.QUOTE_SERVICE, userCommand);
-                    }
-                    else
+                    } else
                     {
                         Result = "Usage: QUOTE,userid,stock";
                     }
@@ -92,7 +91,7 @@ namespace WebServer.Pages
                     {
                         userCommand.filename = args[1];
                         _writer.WriteRecord(userCommand);
-                    }
+                    } 
                     else if (args.Length == 3)
                     {
                         userCommand.username = args[1];
@@ -241,8 +240,7 @@ namespace WebServer.Pages
                 catch (Exception e)
                 {
                     Console.WriteLine($"Unexpected exception : {e.ToString()}");
-                }
-                finally
+                } finally
                 {
                     client_out.Close();
                     client_in.Close();
