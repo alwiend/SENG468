@@ -36,7 +36,7 @@ namespace SellService
         object SellStock(UserCommandType command)
         {
             string result;
-            string stockCost = GetStock(command.stockSymbol);
+            string stockCost = GetStock(command.stockSymbol, command.username);
             double stockBalance;
             try
             {
@@ -73,78 +73,12 @@ namespace SellService
             return result;
         }
 
-        public static string GetStock(string stock)
+        public string GetStock(string stockSymbol, string username)
         {
-            string cost = "";
-            try
-            {
-                // Establish the remote endpoint  
-                // for the socketstring howtogeek = "www.google.com";
-                IPAddress[] addresslist = Dns.GetHostAddresses("quoteserve.seng.uvic.ca");
-                var ipAddr = addresslist.FirstOrDefault();
-                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, 4448);
 
-                // Creation TCP/IP Socket using  
-                // Socket Class Costructor 
-                Socket sender = new Socket(ipAddr.AddressFamily,
-                           SocketType.Stream, ProtocolType.Tcp);
-
-                try
-                {
-
-                    // Connect Socket to the remote  
-                    // endpoint using method Connect() 
-                    sender.Connect(localEndPoint);
-
-                    // We print EndPoint information  
-                    // that we are connected 
-                    Console.WriteLine("Socket connected to -> {0} ",
-                                  sender.RemoteEndPoint.ToString());
-
-                    // Creation of message that 
-                    // we will send to Server 
-                    int byteSent = sender.Send(Encoding.ASCII.GetBytes(stock));
-
-                    // Data buffer 
-                    byte[] quoteReceived = new byte[1024];
-
-                    // We receive the messagge using  
-                    // the method Receive(). This  
-                    // method returns number of bytes 
-                    // received, that we'll use to  
-                    // convert them to string 
-                    int byteRecv = sender.Receive(quoteReceived);
-                    cost = Encoding.ASCII.GetString(quoteReceived,
-                                                     0, byteRecv);
-                    Console.WriteLine($"Quote: {stock}\nCost: ${cost}");
-
-                    // Close Socket using  
-                    // the method Close() 
-                    sender.Shutdown(SocketShutdown.Both);
-                    sender.Close();
-                }
-
-                // Manage of Socket's Exceptions 
-                catch (ArgumentNullException ane)
-                {
-                    Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
-                }
-
-                catch (SocketException se)
-                {
-                    Console.WriteLine("SocketException : {0}", se.ToString());
-                }
-
-                catch (Exception e)
-                {
-                    Console.WriteLine("Unexpected exception : {0}", e.ToString());
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.ToString());
-            }
-            return cost;
+            ServiceConnection conn = new ServiceConnection(Server.QUOTE_SERVER);
+            string quote = conn.Send($"{stockSymbol},{username}", true);
+            return quote.Split(",")[0];
         }
     }
 }
