@@ -27,3 +27,13 @@ transType TEXT,
 transTime TEXT,
 PRIMARY KEY (id)
 ) COMMENT='table for pending buy/sell transactions';
+
+CREATE TABLE triggers
+(
+id INTEGER AUTO_INCREMENT,
+userid TEXT,
+stock TEXT,
+amount INTEGER,
+triggerType TEXT,
+triggerAmount INTEGER
+) COMMENT='table for buy/sell triggers
