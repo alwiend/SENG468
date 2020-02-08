@@ -18,11 +18,15 @@ WebServer/obj/
 WebServer/bin/
 
 QuoteServer/.vs/
+
+TransactionMicroservices/BuyService/obj/
+TransactionMicroservices/BuyService/bin/
+TransactionMicroservices/BuyService/.vs/
+
 DatabaseServer/data/db/
 TransactionMicroservices/Utilities/obj/
 TransactionMicroservices/Utilities/bin/
 TransactionMicroservices/AddService/bin/
-*.user
 TransactionMicroservices/AddService/obj/
 AuditServer/bin/
 Common/.vs/
@@ -35,6 +39,19 @@ Common/Constants/bin/
 Common/Utilities/bin/
 Common/Utilities/obj/
 TransactionMicroservices/Database/bin/
+
+TransactionMicroservices/DisplaySummaryService/bin/
+TransactionMicroservices/DisplaySummaryService/obj/
+
+TransactionMicroservices/SellService/bin/
+TransactionMicroservices/SellService/obj/
 WorkloadGenerator/bin/
 WorkloadGenerator/.vs/
 WorkloadGenerator/obj/
+*.user
+TransactionMicroservices/BuyService/Properties/
+
+TransactionMicroservices/BuyService/obj/
+TransactionMicroservices/BuyService/bin/
+TransactionMicroservices/BuyService/.vs/
+

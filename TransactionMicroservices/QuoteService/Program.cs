@@ -27,74 +27,28 @@ namespace QuoteService
 
         string LogQuoteServerEvent(UserCommandType command, string quote)
         {
+            //Cost,StockSymbol,UserId,Timestamp,CryptoKey
+            string[] args = quote.Split(",");
             QuoteServerType stockQuote = new QuoteServerType()
             {
-                username = command.username,
+                username = args[2],
                 server = Server.QUOTE_SERVER.Abbr,
-                price = decimal.Parse(quote),
+                price = decimal.Parse(args[0]),
                 transactionNum = command.transactionNum,
-                stockSymbol = command.stockSymbol,
+                stockSymbol = args[1],
                 timestamp = Unix.TimeStamp.ToString(),
-                quoteServerTime = Unix.TimeStamp.ToString(),
-                cryptokey = ""
+                quoteServerTime = args[3],
+                cryptokey = args[4]
             };
             Auditor.WriteRecord(stockQuote);
             return stockQuote.price.ToString();
         }
 
-        // ExecuteClient() Method 
-        object RequestQuote(UserCommandType command)
+        string RequestQuote(UserCommandType command)
         {
-            string cost = "";
-            try
-            {
-                // Establish the remote endpoint  
-                var ipAddr = Dns.GetHostAddresses(Server.QUOTE_SERVER.ServiceName).FirstOrDefault();
-                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, Server.QUOTE_SERVER.Port);
-
-                TcpClient client = new TcpClient(AddressFamily.InterNetwork);
-                client.Connect(localEndPoint);
-                StreamWriter client_out = null;
-                StreamReader client_in = null;
-                try
-                {
-                    client_out = new StreamWriter(client.GetStream());
-                    client_in = new StreamReader(client.GetStream());
-
-                    client_out.Write($"{command.stockSymbol},{command.username}");
-                    client.Client.Shutdown(SocketShutdown.Send);
-                    string quote = client_in.ReadToEnd();
-                    client.Client.Shutdown(SocketShutdown.Receive);
-                    cost = LogQuoteServerEvent(command, quote);
-                }
-
-                // Manage of Socket's Exceptions 
-                catch (ArgumentNullException ane)
-                {
-
-                    Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
-                }
-
-                catch (SocketException se)
-                {
-
-                    Console.WriteLine("SocketException : {0}", se.ToString());
-                }
-
-                catch (Exception e)
-                {
-                    Console.WriteLine("Unexpected exception : {0}", e.ToString());
-                } 
-                client.Client.Close();
-                client.Dispose();
-            }
-
-            catch (Exception e)
-            {
-
-                Console.WriteLine(e.ToString());
-            }
-            return cost;
+            ServiceConnection conn = new ServiceConnection(Server.QUOTE_SERVER);
+            var quote = conn.Send($"{command.stockSymbol},{command.username}", true);
+            return LogQuoteServerEvent(command, quote);
         }
     }
 }

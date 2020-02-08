@@ -11,7 +11,6 @@ namespace Database
 
         public string Execute(string command)
         {
-            Console.WriteLine($"Execute: {command}");
             string connetionString = "server=databaseserver_db_1;port=3306;database=db;uid=user;pwd=password;";
             MySqlConnection cnn = new MySqlConnection(connetionString);
             try
