@@ -14,12 +14,15 @@ namespace Constants
         public readonly static ServiceConstant QUOTE_SERVICE = new ServiceConstant("quote_service", 44440, "QSVC1");
         public readonly static ServiceConstant ADD_SERVICE = new ServiceConstant("add_service", 44441, "ASVC1");
         public readonly static ServiceConstant BUY_SERVICE = new ServiceConstant("buy_service", 44442, "BSVC1");
-        public readonly static ServiceConstant BUY_CANCEL_SERVICE = new ServiceConstant("buy_service", 44443, "BSVC2");
-        public readonly static ServiceConstant BUY_COMMIT_SERVICE = new ServiceConstant("buy_service", 44444, "BSVC3");
+        public readonly static ServiceConstant BUY_CANCEL_SERVICE = new ServiceConstant("buy_service", 44443, "BSVC1");
+        public readonly static ServiceConstant BUY_COMMIT_SERVICE = new ServiceConstant("buy_service", 44444, "BSVC1");
         public readonly static ServiceConstant DISPLAY_SUMMARY_SERVICE = new ServiceConstant("display_summary_service", 44445, "DSCV1");
         public readonly static ServiceConstant SELL_SERVICE = new ServiceConstant("sell_service", 44446, "SSCV1");
-        public readonly static ServiceConstant SELL_CANCEL_SERVICE = new ServiceConstant("sell_service", 44447, "SSCV2");
-        public readonly static ServiceConstant SELL_COMMIT_SERVICE = new ServiceConstant("sell_service", 44448, "SSCV3");
+        public readonly static ServiceConstant SELL_CANCEL_SERVICE = new ServiceConstant("sell_service", 44447, "SSCV1");
+        public readonly static ServiceConstant SELL_COMMIT_SERVICE = new ServiceConstant("sell_service", 44448, "SSCV1");
+        public readonly static ServiceConstant BUY_TRIGGER_AMOUNT_SERVICE = new ServiceConstant("buy_trigger_service", 44449, "BTSVC1");
+        public readonly static ServiceConstant BUY_TRIGGER_CANCEL_SERVICE = new ServiceConstant("buy_trigger_service", 44450, "BTSVC1");
+        public readonly static ServiceConstant BUY_TRIGGER_SET_SERVICE = new ServiceConstant("buy_trigger_service", 44451, "BTSVC1");
     }
 
     public class ServiceConstant
