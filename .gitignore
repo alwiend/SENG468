@@ -48,3 +48,5 @@ TransactionMicroservices/SellService/obj/
 WorkloadGenerator/bin/
 WorkloadGenerator/.vs/
 WorkloadGenerator/obj/
+*.user
+TransactionMicroservices/BuyService/Properties/
