@@ -106,14 +106,14 @@ namespace WebServer.Pages
                 case commandType.BUY:
                     if (args.Length == 4)
                     {
-                        userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]);
                         userCommand.username = args[1];
                         userCommand.stockSymbol = args[2];
+                        userCommand.fundsSpecified = true;
+                        userCommand.funds = Convert.ToDecimal(args[3]);
                         Result = GetServiceResult(Service.BUY_SERVICE, userCommand);
                     } else
                     {
-                        Result = "Usage: BUY,userid,StockSymbol,amount";
+                        Result = "Usage: BUY,userid,stock,amount";
                     }
                     break;
                 case commandType.COMMIT_BUY:

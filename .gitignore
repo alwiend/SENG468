@@ -50,3 +50,8 @@ WorkloadGenerator/.vs/
 WorkloadGenerator/obj/
 *.user
 TransactionMicroservices/BuyService/Properties/
+
+TransactionMicroservices/BuyService/obj/
+TransactionMicroservices/BuyService/bin/
+TransactionMicroservices/BuyService/.vs/
+

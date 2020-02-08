@@ -8,4 +8,4 @@ docker build -t buy_service_image -f Dockerfile .
 docker create --net day_trade_net --name buy_service buy_service_image
 
 PAUSE
-EXITff
+EXIT
