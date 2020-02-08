@@ -103,34 +103,34 @@ namespace WebServer.Pages
                         Result = "Usage: DUMPLOG, userid, filename\nDUMPLOG filename";
                     }
                     break;
-                case BUY:
+                case commandType.BUY:
                     if (args.Length == 4)
                     {
                         userCommand.username = args[1];
                         userCommand.stockSymbol = args[2];
                         userCommand.fundsSpecified = true;
                         userCommand.funds = Convert.ToDecimal(args[3]);
-                        Result = GetServiceResult(Service.BUY, userCommand);
+                        Result = GetServiceResult(Service.BUY_SERVICE, userCommand);
                     } else
                     {
                         Result = "Usage: BUY,userid,stock,amount";
                     }
                     break;
-                case COMMIT_BUY:
+                case commandType.COMMIT_BUY:
                     if (args.Length == 2)
                     {
                         userCommand.username = args[1];
-                        Result = GetServiceResult(Service.COMMIT_BUY, userCommand);
+                        Result = GetServiceResult(Service.BUY_COMMIT_SERVICE, userCommand);
                     } else
                     {
                         Result = "Usage: COMMIT_BUY, userid";
                     }
                     break;
-                case CANCEL_BUY:
+                case commandType.CANCEL_BUY:
                     if (args.Length == 2)
                     {
                         userCommand.username = args[1];
-                        Result = GetServiceResult(Service.CANCEL_BUY, userCommand);
+                        Result = GetServiceResult(Service.BUY_CANCEL_SERVICE, userCommand);
                     } else
                     {
                         Result = "Usage: CANCEL_BUY, userid";
