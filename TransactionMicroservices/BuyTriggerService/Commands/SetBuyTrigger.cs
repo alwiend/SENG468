@@ -19,19 +19,23 @@ namespace BuyTriggerService
 
         private string SetTrigger(UserCommandType command)
         {
-
-            string result = "";
+            string result;
             try
             {
                 // Check if trigger exists
                 MySQL db = new MySQL();
 
-                var hasTrigger = db.Execute($"SELECT amount FROM triggers " +
+                var hasTrigger = db.Execute($"SELECT amount,triggerAmount FROM triggers " +
                     $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'");
                 var triggerObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrigger);
-                if (triggerObject.Length <= 0)
+                if (triggerObject.Length == 0)
                 {
                     return "Trigger does not exist";
+                }
+
+                if (Convert.ToInt32(triggerObject[0]["triggerAmount"])/100m == command.funds)
+                {
+                    return "Trigger already set";
                 }
 
                 // Remove trigger

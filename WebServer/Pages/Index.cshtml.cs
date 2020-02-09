@@ -40,12 +40,12 @@ namespace WebServer.Pages
 
         public void OnPost()
         {
-            string[] args = Array.ConvertAll(Command.Split(','), p => p.Trim()); ;
-            if (args.Length == 0)
+            if (Command == null || Command.Length == 0)
             {
                 Result = "Please enter a command";
                 return;
             }
+            string[] args = Array.ConvertAll(Command.Split(','), p => p.Trim());
             if (!Enum.TryParse(typeof(commandType), args[0].ToUpper(), out object ct))
             {
                 Result = "Invalid command";
