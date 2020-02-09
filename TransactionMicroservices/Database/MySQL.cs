@@ -16,7 +16,6 @@ namespace Database
             try
             {
                 cnn.Open();
-                Console.WriteLine("Connected to db");
 
                 MySqlCommand cmd = new MySqlCommand(command, cnn);
                 MySqlDataReader rdr = cmd.ExecuteReader();
@@ -65,12 +64,9 @@ namespace Database
             try
             {
                 cnn.Open();
-                Console.WriteLine("Connected to db");
 
                 MySqlCommand cmd = new MySqlCommand(command, cnn);
                 var result = cmd.ExecuteNonQuery();
-
-                Console.WriteLine($"{result} rows inserted");
 
                 cnn.Close();
                 return $"{{'rows': {result}}}";

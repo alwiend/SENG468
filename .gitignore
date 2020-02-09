@@ -57,3 +57,8 @@ TransactionMicroservices/BuyService/.vs/
 
 TransactionMicroservices/BuyTriggerService/obj/
 TransactionMicroservices/BuyTriggerService/bin/
+TransactionMicroservices/BuyTriggerService/.vs/
+
+TransactionMicroservices/SellTriggerService/obj/
+TransactionMicroservices/SellTriggerService/bin/
+TransactionMicroservices/SellTriggerService/.vs/
