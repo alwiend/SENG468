@@ -210,8 +210,45 @@ namespace WebServer.Pages
                     }
                     break;
                 case commandType.SET_SELL_AMOUNT:
+                    if (args.Length == 4)
+                    {
+                        userCommand.username = args[1];
+                        userCommand.stockSymbol = args[2];
+                        userCommand.fundsSpecified = true;
+                        userCommand.funds = Convert.ToDecimal(args[3]);
+                        Result = GetServiceResult(Service.SELL_TRIGGER_AMOUNT_SERVICE, userCommand);
+                    }
+                    else
+                    {
+                        Result = "Usage: SET_SELL_AMOUNT,jsmith,ABC,50.00";
+                    }
+                    break;
                 case commandType.SET_SELL_TRIGGER:
+                    if (args.Length == 4)
+                    {
+                        userCommand.username = args[1];
+                        userCommand.stockSymbol = args[2];
+                        userCommand.fundsSpecified = true;
+                        userCommand.funds = Convert.ToDecimal(args[3]);
+                        Result = GetServiceResult(Service.SELL_TRIGGER_SET_SERVICE, userCommand);
+                    }
+                    else
+                    {
+                        Result = "Usage: SET_SELL_TRIGGER,jsmith,ABC,20.00";
+                    }
+                    break;
                 case commandType.CANCEL_SET_SELL:
+                    if (args.Length == 3)
+                    {
+                        userCommand.username = args[1];
+                        userCommand.stockSymbol = args[2];
+                        Result = GetServiceResult(Service.SELL_TRIGGER_CANCEL_SERVICE, userCommand);
+                    }
+                    else
+                    {
+                        Result = "Usage: CANCEL_SET_SELL,jsmith,ABC";
+                    }
+                    break;
                 case commandType.DISPLAY_SUMMARY:
                     if (args.Length == 2)
                     {
@@ -255,6 +292,7 @@ namespace WebServer.Pages
 
                     XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
                     serializer.Serialize(client_out, userCommand);
+                    client_out.Flush();
                     // Shutdown Clientside sending to signal end of stream
                     client.Client.Shutdown(SocketShutdown.Send);
                     result = client_in.ReadToEnd();
