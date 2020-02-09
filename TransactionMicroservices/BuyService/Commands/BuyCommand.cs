@@ -45,7 +45,7 @@ namespace BuyService
                 var userObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
                 if (userObject.Length <= 0)
                 {
-                    return "Insufficient balance";
+                    return "User does not exist";
                 }
 
                 balance = long.Parse(userObject[0]["money"]) / 100; // normalize

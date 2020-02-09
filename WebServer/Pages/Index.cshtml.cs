@@ -40,12 +40,12 @@ namespace WebServer.Pages
 
         public void OnPost()
         {
-            string[] args = Array.ConvertAll(Command.Split(','), p => p.Trim()); ;
-            if (args.Length == 0)
+            if (Command == null || Command.Length == 0)
             {
                 Result = "Please enter a command";
                 return;
             }
+            string[] args = Array.ConvertAll(Command.Split(','), p => p.Trim());
             if (!Enum.TryParse(typeof(commandType), args[0].ToUpper(), out object ct))
             {
                 Result = "Invalid command";
@@ -170,8 +170,45 @@ namespace WebServer.Pages
                     }
                     break;
                 case commandType.SET_BUY_AMOUNT:
+                    if (args.Length == 4)
+                    {
+                        userCommand.username = args[1];
+                        userCommand.stockSymbol = args[2];
+                        userCommand.fundsSpecified = true;
+                        userCommand.funds = Convert.ToDecimal(args[3]);
+                        Result = GetServiceResult(Service.BUY_TRIGGER_AMOUNT_SERVICE, userCommand);
+                    }
+                    else
+                    {
+                        Result = "Usage: SET_BUY_AMOUNT,jsmith,ABC,50.00";
+                    }
+                    break;
                 case commandType.CANCEL_SET_BUY:
+                    if (args.Length == 3)
+                    {
+                        userCommand.username = args[1];
+                        userCommand.stockSymbol = args[2];
+                        Result = GetServiceResult(Service.BUY_TRIGGER_CANCEL_SERVICE, userCommand);
+                    }
+                    else
+                    {
+                        Result = "Usage: CANCEL_SET_BUY,jsmith,ABC";
+                    }
+                    break;
                 case commandType.SET_BUY_TRIGGER:
+                    if (args.Length == 4)
+                    {
+                        userCommand.username = args[1];
+                        userCommand.stockSymbol = args[2];
+                        userCommand.fundsSpecified = true;
+                        userCommand.funds = Convert.ToDecimal(args[3]);
+                        Result = GetServiceResult(Service.BUY_TRIGGER_SET_SERVICE, userCommand);
+                    }
+                    else
+                    {
+                        Result = "Usage: SET_BUY_TRIGGER,jsmith,ABC,20.00";
+                    }
+                    break;
                 case commandType.SET_SELL_AMOUNT:
                 case commandType.SET_SELL_TRIGGER:
                 case commandType.CANCEL_SET_SELL:

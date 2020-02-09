@@ -1,6 +1,6 @@
 cd %~dp0
 
-docker-compose down
+docker-compose down -v
 
 PAUSE
 EXIT
