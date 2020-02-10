@@ -23,17 +23,62 @@ namespace BuyService
                 timestamp = Unix.TimeStamp.ToString(),
                 server = ServiceDetails.Abbr,
                 transactionNum = command.transactionNum,
-                action = "cancel buy",
+                action = "add",
                 username = command.username,
                 funds = command.funds
             };
             Auditor.WriteRecord(transaction);
         }
 
+        string LogUserErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                errorMessage = "No recent transactions to cancel."
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        string LogDBErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                stockSymbol = command.stockSymbol,
+                funds = command.funds,
+                errorMessage = "Error getting account details"
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        void LogDebugEvent(UserCommandType command, Exception e)
+        {
+            DebugType bug = new DebugType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                debugMessage = e.ToString()
+            };
+            Auditor.WriteRecord(bug);
+        }
+
         public string CancelBuy(UserCommandType command)
         {
-            string result = "";
-            double amount = 0.0;
+            string result;
+            double amount;
             DateTime currTime = DateTime.UtcNow;
             try
             {
@@ -45,6 +90,7 @@ namespace BuyService
                 var stockObj = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(stockReq);
                 int minTimeIndex = -1;
                 double minTime = 60.1;
+                command.funds = 0;
                 for(int i = 0; i < stockObj.Length; i++)
                 {
                     amount = double.Parse(stockObj[i]["price"])/100;
@@ -62,7 +108,7 @@ namespace BuyService
                             int newB = int.Parse(userBalance[0]["money"]) + (int)(amount*100);
                             db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND transTime='{tTime}' AND transType='BUY'");
                             db.ExecuteNonQuery($"UPDATE user SET money={newB} WHERE userid='{command.username}'");
-                            command.funds = newB/100;
+                            command.funds += (decimal)amount;
                         }
                     }
                 }
@@ -71,24 +117,27 @@ namespace BuyService
                 {
                     amount = int.Parse(stockObj[minTimeIndex]["price"]);
                     string stock = stockObj[minTimeIndex]["stock"];
-                    int newB = Convert.ToInt32(userBalance[0]["money"]) + (int)(amount);
+                    string tTime = stockObj[minTimeIndex]["transTime"];
+                    var userQuery = db.Execute($"SELECT money FROM user WHERE userid='{command.username}'");
+                    var queryRes = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(userQuery);
+                    int newB = int.Parse(queryRes[0]["money"]) + (int)amount;
                     db.ExecuteNonQuery($"UPDATE user SET money={newB} WHERE userid='{command.username}'");
                     result = $"Successfully canceled most recent buy command.\n" +
-                        $"Your new balance is {newB/100}";
-                    db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND stock='{stock}' AND price={amount} AND transType='BUY'");
+                        $"{amount/100} has been added back into your account,";
+                    db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND stock='{stock}' AND price={amount} AND transType='BUY' AND transTime='{tTime}'");
+                    command.funds += (decimal)(amount / 100);
                 } else
                 {
-                    result = "No transactions to cancel.";
+                    result = LogUserErrorEvent(command);
                 }
                
             }
             catch (Exception e)
             {
-                result = $"{e.ToString()} Error occured changing acccount balance";
-                Console.WriteLine(e.ToString());
+                result = LogDBErrorEvent(command);
+                LogDebugEvent(command, e);
             }
-            // BuyCache.RemoveItems(user);
-            LogTransactionEvent(command);
+            LogTransactionEvent(command); // Logs all funds returned into the account
             return result;
         }
     }

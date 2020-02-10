@@ -16,6 +16,66 @@ namespace SellTriggerService
             DataReceived = CancelTrigger;
         }
 
+        void LogTransactionEvent(UserCommandType command)
+        {
+            SystemEventType transaction = new SystemEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                funds = command.funds,
+                stockSymbol = command.stockSymbol
+            };
+            Auditor.WriteRecord(transaction);
+        }
+
+        string LogUserErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                errorMessage = "Trigger does not exist"
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        string LogDBErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                stockSymbol = command.stockSymbol,
+                funds = command.funds,
+                errorMessage = "Error processing command"
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        void LogDebugEvent(UserCommandType command, Exception ex)
+        {
+            DebugType bug = new DebugType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                debugMessage = ex.ToString()
+            };
+            Auditor.WriteRecord(bug);
+        }
+
         private string CancelTrigger(UserCommandType command)
         {
             string result;
@@ -29,13 +89,13 @@ namespace SellTriggerService
                 var triggerObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrigger);
                 if (triggerObject.Length == 0)
                 {
-                    return "Trigger does not exist";
+                    return LogUserErrorEvent(command);
                 }
 
                 // Return stock to user account
                 db.ExecuteNonQuery($"UPDATE stocks SET price=price+{triggerObject[0]["amount"]}" +
                     $" WHERE userid='{command.username}' AND stock='{command.stockSymbol}'");
-
+                command.funds = decimal.Parse(triggerObject[0]["amount"])/100;
                 // Remove trigger
                 db.ExecuteNonQuery($"DELETE FROM triggers " +
                     $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'");
@@ -44,9 +104,10 @@ namespace SellTriggerService
             }
             catch (Exception ex)
             {
-                return "Error processing command";
+                LogDebugEvent(command, ex);
+                return LogDBErrorEvent(command);
             }
-
+            LogTransactionEvent(command);
             return result;
         }
     }

@@ -23,16 +23,62 @@ namespace DisplaySummaryService
 
         void LogTransactionEvent(UserCommandType command)
         {
-            AccountTransactionType transaction = new AccountTransactionType()
+            SystemEventType transaction = new SystemEventType()
             {
                 timestamp = Unix.TimeStamp.ToString(),
                 server = ServiceDetails.Abbr,
                 transactionNum = command.transactionNum,
-                action = "display summary",
+                command = command.command,
                 username = command.username,
-                funds = command.funds
             };
             Auditor.WriteRecord(transaction);
+        }
+
+        string LogUserErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                stockSymbol = command.stockSymbol,
+                funds = command.funds,
+                errorMessage = "User does not exist"
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        string LogDBErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                stockSymbol = command.stockSymbol,
+                funds = command.funds,
+                errorMessage = "Error getting account details"
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        void LogDebugEvent(UserCommandType command, Exception e)
+        {
+            DebugType bug = new DebugType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                debugMessage = e.ToString()
+            };
+            Auditor.WriteRecord(bug);
         }
 
         object DisplayAccount(UserCommandType command)
@@ -60,13 +106,13 @@ namespace DisplaySummaryService
                     
                 } else
                 {
-                    result = $"User {command.username} does not exist.";
+                    result = LogUserErrorEvent(command);
                 }
             }
             catch (Exception e)
             {
-                result = "Error occured adding money";
-                Console.WriteLine(e.ToString());
+                result = LogDBErrorEvent(command);
+                LogDebugEvent(command, e);
             }
             LogTransactionEvent(command);
             return result;

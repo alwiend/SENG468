@@ -26,17 +26,83 @@ namespace BuyService
                 timestamp = Unix.TimeStamp.ToString(),
                 server = ServiceDetails.Abbr,
                 transactionNum = command.transactionNum,
-                action = "buy",
+                action = "remove",
                 username = command.username,
                 funds = command.funds
             };
             Auditor.WriteRecord(transaction);
         }
 
+        string LogQuoteServerEvent(UserCommandType command, string quote)
+        {
+            //Cost,StockSymbol,UserId,Timestamp,CryptoKey
+            string[] args = quote.Split(",");
+            QuoteServerType stockQuote = new QuoteServerType()
+            {
+                username = args[2],
+                server = Server.QUOTE_SERVER.Abbr,
+                price = decimal.Parse(args[0]),
+                transactionNum = command.transactionNum,
+                stockSymbol = args[1],
+                timestamp = Unix.TimeStamp.ToString(),
+                quoteServerTime = args[3],
+                cryptokey = args[4]
+            };
+            Auditor.WriteRecord(stockQuote);
+            return stockQuote.price.ToString();
+        }
+
+        string LogUserErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                stockSymbol = command.stockSymbol,
+                funds = command.funds,
+                errorMessage = "User does not exist or user balance error"
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        string LogDBErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                stockSymbol = command.stockSymbol,
+                funds = command.funds,
+                errorMessage = "Error getting account details"
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        void LogDebugEvent(UserCommandType command, Exception e)
+        {
+            DebugType bug = new DebugType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                debugMessage = e.ToString()
+            };
+            Auditor.WriteRecord(bug);
+        }
+
         public string BuyStock(UserCommandType command)
         {
             string result;
-            string stockCost = GetStock(command.stockSymbol, command.username);
+            string stockCost = GetStock(command);
             long balance;
             try
             {
@@ -45,7 +111,7 @@ namespace BuyService
                 var userObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
                 if (userObject.Length <= 0)
                 {
-                    return "User does not exist";
+                    return LogUserErrorEvent(command);
                 }
 
                 balance = long.Parse(userObject[0]["money"]) / 100; // normalize
@@ -53,7 +119,11 @@ namespace BuyService
 
                 if (balance < command.funds)
                 {
-                    return $"Not enough money to buy {command.funds} worth of {command.stockSymbol}.";
+                    return LogUserErrorEvent(command);
+                }
+                if (numStock < 1)
+                {
+                    return LogUserErrorEvent(command);
                 }
 
                 double amount = (double)numStock * double.Parse(stockCost); // amount to send to pending transactions
@@ -69,28 +139,22 @@ namespace BuyService
                 // Update the amount in user account
                 db.ExecuteNonQuery($"UPDATE user SET money = {leftover} WHERE userid='{command.username}'");
 
-                command.funds = (long)leftover;
+                command.funds = (decimal)amount/100;
                 LogTransactionEvent(command);
                 }
                 catch (Exception e)
                 {
-                    result = $"Error occured getting account details.";
-                    Console.WriteLine(e.ToString());
+                    result = LogDBErrorEvent(command);
+                    LogDebugEvent(command, e);
                 }
             return result;
         }
 
-        //public static void CacheBuyRequest(double amount, string stock, string stockCost, string user)
-        //{
-        //    string transaction = $"{user},{stock},{stockCost},{Convert.ToString(amount)}";
-        //    BuyCache.StoreItemsInCache(user, transaction);
-        //}
-
-        public static string GetStock(string stockSymbol, string username)
+        string GetStock(UserCommandType command)
         {
             ServiceConnection conn = new ServiceConnection(Server.QUOTE_SERVER);
-            string quote = conn.Send($"{stockSymbol},{username}", true);
-            return quote.Split(",")[0];
+            string quote = conn.Send($"{command.stockSymbol},{command.username}", true);
+            return LogQuoteServerEvent(command, quote);
         }
     }
 }

@@ -16,6 +16,66 @@ namespace SellTriggerService
             DataReceived = SetAmount;
         }
 
+        void LogTransactionEvent(UserCommandType command)
+        {
+            SystemEventType transaction = new SystemEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                funds = command.funds,
+                stockSymbol = command.stockSymbol
+            };
+            Auditor.WriteRecord(transaction);
+        }
+
+        string LogUserErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                errorMessage = "Tigger already exists OR Insufficient stock"
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        string LogDBErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                stockSymbol = command.stockSymbol,
+                funds = command.funds,
+                errorMessage = "Error processing command"
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        void LogDebugEvent(UserCommandType command, Exception ex)
+        {
+            DebugType bug = new DebugType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                debugMessage = ex.ToString()
+            };
+            Auditor.WriteRecord(bug);
+        }
+
         private string SetAmount(UserCommandType command)
         {
             string result = "";
@@ -28,7 +88,7 @@ namespace SellTriggerService
                 var userObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
                 if (userObject.Length == 0)
                 {
-                    return "You do not own this stock.";
+                    return LogUserErrorEvent(command);
                 }
 
                 int balance = int.Parse(userObject[0]["price"]);
@@ -37,7 +97,7 @@ namespace SellTriggerService
 
                 if (balance < quantity)
                 {
-                    return $"Insufficient stocks.";
+                    return LogUserErrorEvent(command);
                 }
 
                 // Check if there is already a trigger
@@ -46,7 +106,7 @@ namespace SellTriggerService
                 var triggerObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrigger);
                 if (triggerObject.Length > 0)
                 {
-                    return "Trigger already exists";
+                    return LogUserErrorEvent(command);
                 }
 
                 // Set aside required stock
@@ -62,9 +122,10 @@ namespace SellTriggerService
             }
             catch (Exception ex)
             {
-                return "Error processing command";
+                LogDebugEvent(command, ex);
+                return LogDBErrorEvent(command);
             }
-
+            LogTransactionEvent(command);
             return result;
         }
     }
