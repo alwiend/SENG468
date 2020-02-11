@@ -41,6 +41,36 @@ namespace AddService
             Auditor.WriteRecord(transaction);
         }
 
+        string LogDBErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                stockSymbol = command.stockSymbol,
+                funds = command.funds,
+                errorMessage = "Error occurred adding money."
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        void LogDebugEvent(UserCommandType command, Exception e)
+        {
+            DebugType bug = new DebugType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                debugMessage = e.ToString()
+            };
+            Auditor.WriteRecord(bug);
+        }
+
         // ExecuteClient() Method 
         object AddMoney(UserCommandType command)
         {
@@ -66,8 +96,8 @@ namespace AddService
             }
             catch (Exception e)
             {
-                result = "Error occured adding money";
-                Console.WriteLine(e.ToString());
+                LogDebugEvent(command, e);
+                result = LogDBErrorEvent(command);
             }
             return result;
         }

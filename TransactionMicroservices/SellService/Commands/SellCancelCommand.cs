@@ -18,16 +18,62 @@ namespace SellService
 
         void LogTransactionEvent(UserCommandType command)
         {
-            AccountTransactionType transaction = new AccountTransactionType()
+            SystemEventType transaction = new SystemEventType()
             {
                 timestamp = Unix.TimeStamp.ToString(),
                 server = ServiceDetails.Abbr,
                 transactionNum = command.transactionNum,
-                action = "cancel sell",
+                command = command.command,
                 username = command.username,
-                funds = command.funds
+                funds = command.funds,
+                stockSymbol = command.stockSymbol          
             };
             Auditor.WriteRecord(transaction);
+        }
+
+        string LogUserErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                errorMessage = "No recent transactions to cancel."
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        string LogDBErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                stockSymbol = command.stockSymbol,
+                funds = command.funds,
+                errorMessage = "Error getting account details"
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        void LogDebugEvent(UserCommandType command, Exception e)
+        {
+            DebugType bug = new DebugType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                debugMessage = e.ToString()
+            };
+            Auditor.WriteRecord(bug);
         }
 
         object CancelSell(UserCommandType command)
@@ -42,6 +88,7 @@ namespace SellService
                 var transObj = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrans);
                 int minTimeIndex = -1;
                 double minTime = 60.1;
+                command.funds = 0;
                 for (int i = 0; i < transObj.Length; i++)
                 {
                     amount = double.Parse(transObj[i]["price"]);
@@ -56,9 +103,7 @@ namespace SellService
                     {
                         if (timeDiff > 60)
                         {
-                            var hasStock = db.Execute($"SELECT price FROM stocks WHERE userid='{command.username}' AND stock='{transObj[i]["stock"]}'");
-                            var stockObj = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasStock);
-                            db.ExecuteNonQuery($"UPDATE stocks SET price={int.Parse(stockObj[0]["price"]) + amount} WHERE userid='{command.username}' AND stock='{transObj[i]["stock"]}'");
+                            db.ExecuteNonQuery($"UPDATE stocks SET price=price+{amount} WHERE userid='{command.username}' AND stock='{transObj[i]["stock"]}'");
                             db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND transTime='{tTime}' AND transType='SELL' AND stock='{transObj[0]["stock"]}'");
                         }
                     }
@@ -68,21 +113,22 @@ namespace SellService
                 {
                     amount = int.Parse(transObj[minTimeIndex]["price"]);
                     string stock = transObj[minTimeIndex]["stock"];
-                    var hasStock = db.Execute($"SELECT price FROM stocks WHERE userid='{command.username}' AND stock='{stock}'");
-                    var stockObj = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasStock);
-                    db.ExecuteNonQuery($"UPDATE stocks SET price={amount + long.Parse(stockObj[0]["price"])} WHERE userid='{command.username}' AND stock='{stock}'");
+                    string tTime = transObj[minTimeIndex]["transTime"];
+                    db.ExecuteNonQuery($"UPDATE stocks SET price=price+{amount} WHERE userid='{command.username}' AND stock='{stock}'");
                     result = $"Successfully canceled most recent sell command. \n" +
                         $"You have ${amount / 100} of {stock} back into your account.";
-                    db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND stock='{stock}' AND price={amount} AND transType='SELL'");
+                    db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND stock='{stock}' AND price={amount} AND transType='SELL' AND transTime='{tTime}'");
+                    command.funds = (decimal)(amount / 100);
+                    command.stockSymbol = stock;
                 } else
                 {
-                    result = "No transactions to cancel.";
+                    result = LogUserErrorEvent(command);
                 }
             }
             catch (Exception e)
             {
-                result = $"Error occured getting account details.";
-                Console.WriteLine(e.ToString());
+                result = LogDBErrorEvent(command);
+                LogDebugEvent(command, e);
             }
             LogTransactionEvent(command);
             return result;

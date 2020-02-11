@@ -16,6 +16,65 @@ namespace BuyTriggerService
             DataReceived = SetAmount;
         }
 
+        void LogTransactionEvent(UserCommandType command)
+        {
+            AccountTransactionType transaction = new AccountTransactionType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                action = "remove",
+                username = command.username,
+                funds = command.funds
+            };
+            Auditor.WriteRecord(transaction);
+        }
+
+        string LogUserErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                errorMessage = "Trigger/User does not exist OR insufficeint funds"
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        string LogDBErrorEvent(UserCommandType command)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                stockSymbol = command.stockSymbol,
+                funds = command.funds,
+                errorMessage = "Error processing command"
+            };
+            Auditor.WriteRecord(error);
+            return error.errorMessage;
+        }
+
+        void LogDebugEvent(UserCommandType command, Exception ex)
+        {
+            DebugType bug = new DebugType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                debugMessage = ex.ToString()
+            };
+            Auditor.WriteRecord(bug);
+        }
+
         private string SetAmount(UserCommandType command)
         {
             string result = "";
@@ -27,14 +86,14 @@ namespace BuyTriggerService
                 var userObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
                 if (userObject.Length <= 0)
                 {
-                    return "User does not exist";
+                    return LogUserErrorEvent(command);
                 }
 
                 decimal balance = decimal.Parse(userObject[0]["money"]) / 100.0m; // normalize
 
                 if (balance < command.funds)
                 {
-                    return $"Not enough money to set trigger.";
+                    return LogUserErrorEvent(command);
                 }
 
                 // Check if there is already a trigger
@@ -43,7 +102,7 @@ namespace BuyTriggerService
                 var triggerObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrigger);
                 if (triggerObject.Length > 0)
                 {
-                    return "Trigger already exists";
+                    return LogUserErrorEvent(command);
                 }
 
                 // Set aside required cash
@@ -58,9 +117,10 @@ namespace BuyTriggerService
             }
             catch (Exception ex)
             {
-                return "Error processing command";
+                LogDebugEvent(command, ex);
+                return LogDBErrorEvent(command);
             }
-
+            LogTransactionEvent(command);
             return result;
         }
     }
