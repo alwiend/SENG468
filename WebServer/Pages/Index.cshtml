@@ -1,0 +1,13 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+    <div class="text-center">
+        <form method="post">
+            <input asp-for="Command">
+            <input type="submit">
+        </form>
+        <span>Result: @Model.Result </span>
+    </div>
