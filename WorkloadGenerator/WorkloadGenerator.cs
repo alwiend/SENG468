@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web;
@@ -11,6 +13,7 @@ namespace WorkloadGenerator
     public class WorkloadGenerator
     {
         readonly Dictionary<string, Queue<string>> userCommands = new Dictionary<string, Queue<string>>();
+        readonly HttpClient httpClient = new HttpClient();
 
         public async Task<bool> RunAsync(string filename)
         {
@@ -49,75 +52,72 @@ namespace WorkloadGenerator
             }
             Console.WriteLine("Parsing Complete");
 
-            Console.WriteLine("Spawn User Tasks");
-            List<Task> tasks = new List<Task>(userCommands.Count);
-            foreach (string user in userCommands.Keys)
-            {
-                tasks.Add(Task.Factory.StartNew(() =>
-                {
-                    return ExecuteUserCommands(userCommands[user]);
-                }));
-            }
-            Console.WriteLine("Spawning Complete");
+            Console.WriteLine("Wait for User Tasks");
 
-            Console.WriteLine("Wait For Completion");
-            await Task.WhenAll(tasks);
-            PostToWebServer(finalCommand);
+            DateTime start = DateTime.Now;
+            await Task.WhenAll(userCommands.Select(userCmds => Task.Run(async () =>
+            {
+                await ExecuteUserCommands(userCmds.Value);
+            })));
+
+            Console.WriteLine($"Ran for {(DateTime.Now - start).TotalSeconds} seconds");
+            await PostToWebServer(finalCommand);
 
             return true;
         }
 
-        private bool ExecuteUserCommands(Queue<string> commands)
+        public async Task<bool> RunAsync()
+        {
+            Console.WriteLine("Spawn AsyncTest Tasks");
+            for (int i = 0; i < 1000; i++)
+            {
+                Queue<string> queue = new Queue<string>();
+                for (int j = 0; j < 1; j++)
+                {
+                    queue.Enqueue("AsyncTest");
+                }
+                userCommands.Add($"user{i}", queue);
+            }
+
+            Console.WriteLine("Spawning Complete");
+            Console.WriteLine("Wait For Completion");
+            DateTime start = DateTime.Now;
+            await Task.WhenAll(userCommands.Select(userCmds => Task.Run(async () =>
+            {
+                await ExecuteUserCommands(userCmds.Value);
+            })));
+
+            Console.WriteLine($"Ran for {(DateTime.Now - start).TotalSeconds} seconds");
+            return true;
+        }
+
+        private async Task ExecuteUserCommands(Queue<string> commands)
         {
             bool success = true;
             while (commands.Count > 0 && success)
             {
                 // Run user commands as long as there is no errors
-                success = success && PostToWebServer(commands.Dequeue());
+                await PostToWebServer(commands.Dequeue());
             }
-            return success;
         }
 
-        bool PostToWebServer(string command)
+        async Task PostToWebServer(string command)
         {
-            WebRequest request = WebRequest.Create("http://localhost:8080");
-            request.ContentType = "multipart/form-data;";
-            request.Method = "POST";
-            request.ContentType = "application/x-www-form-urlencoded";
-
             try
             {
-                byte[] byteArray = Encoding.UTF8.GetBytes($"Command={HttpUtility.UrlEncode(command)}");
+                string URI = "http://localhost:8080";
 
-                // Set the ContentLength property of the WebRequest.  
-                request.ContentLength = byteArray.Length;
-
-                // Get the request stream.  
-                Stream dataStream = request.GetRequestStream();
-                // Write the data to the request stream.  
-                dataStream.Write(byteArray, 0, byteArray.Length);
-                // Close the Stream object.  
-                dataStream.Close();
-
-                // Get the response.  
-                WebResponse response = request.GetResponse();
-                // Cancel if a command failed
-                if (((HttpWebResponse)response).StatusCode != HttpStatusCode.OK)
+                var formContent = new FormUrlEncodedContent(new[]
                 {
-                    return false;
-                }
-
-                // Close the response.  
-                response.Close();
-
+                    new KeyValuePair<string, string>("Command", command)
+                });
+                var result = await httpClient.PostAsync(URI, formContent);
+                
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
-                return false;
             }
-
-            return true;
         }
     }
 }

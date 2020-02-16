@@ -80,8 +80,8 @@ namespace AddService
                 MySQL db = new MySQL();
                 var hasUser = db.Execute($"SELECT userid, money FROM user WHERE userid='{command.username}'");
                 var userObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
-                string query = $"INSERT INTO user (userid, money) VALUES ('{command.username}',{command.funds})";
                 long funds = (long)(command.funds * 100);
+                string query = $"INSERT INTO user (userid, money) VALUES ('{command.username}',{funds})";
                 if (userObject.Length > 0)
                 {
                     funds += long.Parse(userObject[0]["money"]);
@@ -90,7 +90,6 @@ namespace AddService
 
                 db.ExecuteNonQuery(query);
                 result = $"Successfully added {command.funds} into {command.username}'s account";
-                command.funds = Convert.ToDecimal(funds) / 100.0m;
 
                 LogTransactionEvent(command);
             }

@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Utilities
 {
     public interface IAuditWriter
     {
-        public string WriteRecord(object record);
+        public Task<string> WriteRecord(object record);
     }
 }

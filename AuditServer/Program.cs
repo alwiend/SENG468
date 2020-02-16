@@ -9,6 +9,9 @@ using System.Xml.Linq;
 using System.Xml.Serialization;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Xml;
+using Constants;
 
 namespace AuditServer
 {
@@ -18,17 +21,21 @@ namespace AuditServer
 		// Main Method 
 		static void Main(string[] args)
 		{
-			ExecuteServer();
+			ExecuteServer().Wait();
 		}
 
-		private static void ProcessIncoming(TcpClient client)
+		private static async Task ProcessIncoming(TcpClient client)
 		{
 			UserCommandType command = null;
 			try
 			{
-				XmlSerializer serializer = new XmlSerializer(typeof(LogType));
+				var stream = client.GetStream();
 				using StreamReader server_in = new StreamReader(client.GetStream());
-				var log_in = (LogType)serializer.Deserialize(server_in);
+				var data = await server_in.ReadToEndAsync();
+
+				XmlSerializer serializer = new XmlSerializer(typeof(LogType));
+				using StringReader sr = new StringReader(data);
+				var log_in = (LogType)serializer.Deserialize(sr);
 
 				for (int i = 0; i < log_in.Items.Length; i++)
 				{
@@ -61,7 +68,7 @@ namespace AuditServer
 			{
 				DebugType debugEvent = new DebugType
 				{
-					server = "ASVR1",
+					server = Server.AUDIT_SERVER.Abbr,
 					debugMessage = e.Message
 				};
 				if(command != null)
@@ -75,22 +82,21 @@ namespace AuditServer
 
 		}
 
-		public static void ExecuteServer()
+		public static async Task ExecuteServer()
 		{
 			Program.Log = new List<object>();
 
-			IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, 44439);
+			IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, Server.AUDIT_SERVER.Port);
 
 			// Creation TCP/IP Socket using 
 			// Socket Class Costructor 
 			TcpListener listener = new TcpListener(localEndPoint);
-			listener.Start(100);
+			listener.Start();
 
 			while (true)
 			{
-				TcpClient client = listener.AcceptTcpClient();
-				Thread thr = new Thread(new ThreadStart(() => ProcessIncoming(client)));
-				thr.Start();
+				TcpClient client = await listener.AcceptTcpClientAsync();
+				await ProcessIncoming(client);
 			}
 		}
 	}

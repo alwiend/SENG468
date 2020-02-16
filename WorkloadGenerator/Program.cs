@@ -12,9 +12,7 @@ namespace WorkloadGenerator
                 return;
             }
             WorkloadGenerator gen = new WorkloadGenerator();
-            DateTime start = DateTime.Now;
             bool success = gen.RunAsync(args[0]).Result;
-            Console.WriteLine($"Ran for {(DateTime.Now-start).TotalSeconds} seconds");
 
             if (success)
             {

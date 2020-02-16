@@ -38,18 +38,33 @@ namespace WebServer.Pages
 
         }
 
-        public void OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
             if (Command == null || Command.Length == 0)
             {
                 Result = "Please enter a command";
-                return;
+                return Page();
             }
+
+            if (Command == "AsyncTest")
+            {
+                UserCommandType cmd = new UserCommandType
+                {
+                    timestamp = Unix.TimeStamp.ToString(),
+                    server = Server.WEB_SERVER.Abbr,
+                    command = commandType.QUOTE,
+                    username = "AsyncTest",
+                    transactionNum = _globalTransaction.Count.ToString()
+                };
+                await _writer.WriteRecord(cmd);
+                return Page();
+            }
+
             string[] args = Array.ConvertAll(Command.Split(','), p => p.Trim());
             if (!Enum.TryParse(typeof(commandType), args[0].ToUpper(), out object ct))
             {
                 Result = "Invalid command";
-                return;
+                return Page();
             }
 
             UserCommandType userCommand = new UserCommandType
@@ -67,7 +82,7 @@ namespace WebServer.Pages
                     {
                         userCommand.stockSymbol = args[2];
                         userCommand.username = args[1];
-                        Result = GetServiceResult(Service.QUOTE_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.QUOTE_SERVICE, userCommand);
                     } else
                     {
                         Result = "Usage: QUOTE,userid,stock";
@@ -79,7 +94,7 @@ namespace WebServer.Pages
                         userCommand.fundsSpecified = true;
                         userCommand.funds = Convert.ToDecimal(args[2]);
                         userCommand.username = args[1];
-                        Result = GetServiceResult(Service.ADD_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.ADD_SERVICE, userCommand);
                     }
                     else
                     {
@@ -90,13 +105,13 @@ namespace WebServer.Pages
                     if (args.Length == 2)
                     {
                         userCommand.filename = args[1];
-                        _writer.WriteRecord(userCommand);
+                        await _writer.WriteRecord(userCommand);
                     } 
                     else if (args.Length == 3)
                     {
                         userCommand.username = args[1];
                         userCommand.filename = args[2];
-                        _writer.WriteRecord(userCommand);
+                        await _writer.WriteRecord(userCommand);
                     }
                     else
                     {
@@ -110,7 +125,7 @@ namespace WebServer.Pages
                         userCommand.stockSymbol = args[2];
                         userCommand.fundsSpecified = true;
                         userCommand.funds = Convert.ToDecimal(args[3]);
-                        Result = GetServiceResult(Service.BUY_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.BUY_SERVICE, userCommand);
                     } else
                     {
                         Result = "Usage: BUY,userid,stock,amount";
@@ -120,7 +135,7 @@ namespace WebServer.Pages
                     if (args.Length == 2)
                     {
                         userCommand.username = args[1];
-                        Result = GetServiceResult(Service.BUY_COMMIT_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.BUY_COMMIT_SERVICE, userCommand);
                     } else
                     {
                         Result = "Usage: COMMIT_BUY,userid";
@@ -130,7 +145,7 @@ namespace WebServer.Pages
                     if (args.Length == 2)
                     {
                         userCommand.username = args[1];
-                        Result = GetServiceResult(Service.BUY_CANCEL_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.BUY_CANCEL_SERVICE, userCommand);
                     } else
                     {
                         Result = "Usage: CANCEL_BUY,userid";
@@ -143,7 +158,7 @@ namespace WebServer.Pages
                         userCommand.funds = Convert.ToDecimal(args[3]);
                         userCommand.username = args[1];
                         userCommand.stockSymbol = args[2];
-                        Result = GetServiceResult(Service.SELL_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.SELL_SERVICE, userCommand);
                     } else
                     {
                         Result = "Usage: SELL,userid,StockSymbol,amount";
@@ -153,7 +168,7 @@ namespace WebServer.Pages
                     if (args.Length == 2)
                     {
                         userCommand.username = args[1];
-                        Result = GetServiceResult(Service.SELL_COMMIT_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.SELL_COMMIT_SERVICE, userCommand);
                     } else
                     {
                         Result = "Usage: COMMIT_SELL,userid";
@@ -163,7 +178,7 @@ namespace WebServer.Pages
                     if (args.Length == 2)
                     {
                         userCommand.username = args[1];
-                        Result = GetServiceResult(Service.SELL_CANCEL_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.SELL_CANCEL_SERVICE, userCommand);
                     } else
                     {
                         Result = "Usage: CANCEL_SELL,userid";
@@ -176,7 +191,7 @@ namespace WebServer.Pages
                         userCommand.stockSymbol = args[2];
                         userCommand.fundsSpecified = true;
                         userCommand.funds = Convert.ToDecimal(args[3]);
-                        Result = GetServiceResult(Service.BUY_TRIGGER_AMOUNT_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.BUY_TRIGGER_AMOUNT_SERVICE, userCommand);
                     }
                     else
                     {
@@ -188,7 +203,7 @@ namespace WebServer.Pages
                     {
                         userCommand.username = args[1];
                         userCommand.stockSymbol = args[2];
-                        Result = GetServiceResult(Service.BUY_TRIGGER_CANCEL_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.BUY_TRIGGER_CANCEL_SERVICE, userCommand);
                     }
                     else
                     {
@@ -202,7 +217,7 @@ namespace WebServer.Pages
                         userCommand.stockSymbol = args[2];
                         userCommand.fundsSpecified = true;
                         userCommand.funds = Convert.ToDecimal(args[3]);
-                        Result = GetServiceResult(Service.BUY_TRIGGER_SET_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.BUY_TRIGGER_SET_SERVICE, userCommand);
                     }
                     else
                     {
@@ -216,7 +231,7 @@ namespace WebServer.Pages
                         userCommand.stockSymbol = args[2];
                         userCommand.fundsSpecified = true;
                         userCommand.funds = Convert.ToDecimal(args[3]);
-                        Result = GetServiceResult(Service.SELL_TRIGGER_AMOUNT_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.SELL_TRIGGER_AMOUNT_SERVICE, userCommand);
                     }
                     else
                     {
@@ -230,7 +245,7 @@ namespace WebServer.Pages
                         userCommand.stockSymbol = args[2];
                         userCommand.fundsSpecified = true;
                         userCommand.funds = Convert.ToDecimal(args[3]);
-                        Result = GetServiceResult(Service.SELL_TRIGGER_SET_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.SELL_TRIGGER_SET_SERVICE, userCommand);
                     }
                     else
                     {
@@ -242,7 +257,7 @@ namespace WebServer.Pages
                     {
                         userCommand.username = args[1];
                         userCommand.stockSymbol = args[2];
-                        Result = GetServiceResult(Service.SELL_TRIGGER_CANCEL_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.SELL_TRIGGER_CANCEL_SERVICE, userCommand);
                     }
                     else
                     {
@@ -253,7 +268,7 @@ namespace WebServer.Pages
                     if (args.Length == 2)
                     {
                         userCommand.username = args[1];
-                        Result = GetServiceResult(Service.DISPLAY_SUMMARY_SERVICE, userCommand);
+                        Result = await GetServiceResult(Service.DISPLAY_SUMMARY_SERVICE, userCommand);
                         
                     } else
                     {
@@ -264,14 +279,15 @@ namespace WebServer.Pages
                     Result = "Invalid Command";
                     break;
             }
+            return Page();
         }
 
         /*
          * @Param service The port for the service to connect to
          */
-        string GetServiceResult(ServiceConstant sc, UserCommandType userCommand)
+        async Task<string> GetServiceResult(ServiceConstant sc, UserCommandType userCommand)
         {
-            _writer.WriteRecord(userCommand);
+            await _writer.WriteRecord(userCommand);
             string result = "";
             try
             {
@@ -287,16 +303,20 @@ namespace WebServer.Pages
 
                 try
                 {
-                    client_out = new StreamWriter(client.GetStream());
-                    client_in = new StreamReader(client.GetStream());
+                    result = await Task.Run(() =>
+                    {
+                        client_out = new StreamWriter(client.GetStream());
+                        client_in = new StreamReader(client.GetStream());
 
-                    XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
-                    serializer.Serialize(client_out, userCommand);
-                    client_out.Flush();
-                    // Shutdown Clientside sending to signal end of stream
-                    client.Client.Shutdown(SocketShutdown.Send);
-                    result = client_in.ReadToEnd();
-                    client.Client.Shutdown(SocketShutdown.Receive);
+                        XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
+                        serializer.Serialize(client_out, userCommand);
+                        client_out.Flush();
+                        // Shutdown Clientside sending to signal end of stream
+                        client.Client.Shutdown(SocketShutdown.Send);
+                        var data = client_in.ReadToEnd();
+                        client.Client.Shutdown(SocketShutdown.Receive);
+                        return data;
+                    });
                 }
 
                 // Manage of Socket's Exceptions 

@@ -23,7 +23,7 @@ namespace BuyService
                 timestamp = Unix.TimeStamp.ToString(),
                 server = ServiceDetails.Abbr,
                 transactionNum = command.transactionNum,
-                action = "add",
+                action = "remove",
                 username = command.username,
                 funds = command.funds
             };

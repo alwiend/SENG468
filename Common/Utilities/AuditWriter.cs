@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Xml.Serialization;
 
 namespace Utilities
@@ -14,20 +15,14 @@ namespace Utilities
         /*
          * @param record The event to pass to the Audit server
          */
-        public string WriteRecord(object record)
+        public async Task<string> WriteRecord(object record)
         {
             string result = "";
 
             try
             {
-                // Creation TCP/IP Client to Audit Server
-                
-                IPAddress ipAddr = Dns.GetHostAddresses(Constants.Server.AUDIT_SERVER.ServiceName).FirstOrDefault();
-                //var ipAddr = IPAddress.Loopback; //Local Testing
-                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, Constants.Server.AUDIT_SERVER.Port);
-
                 TcpClient client = new TcpClient(AddressFamily.InterNetwork);
-                client.Connect(localEndPoint);
+                await client.ConnectAsync(Constants.Server.AUDIT_SERVER.ServiceName, Constants.Server.AUDIT_SERVER.Port);
 
                 try
                 {
@@ -35,13 +30,19 @@ namespace Utilities
                     {
                         Items = new object[] { record }
                     };
-                    XmlSerializer serializer = new XmlSerializer(typeof(LogType));
-                    using (StreamWriter client_out = new StreamWriter(client.GetStream()))
+
+
+
+                    await Task.Run(() =>
                     {
-                        serializer.Serialize(client_out, log);
-                        // Shutdown Clientside sending to signal end of stream
-                        client.Client.Shutdown(SocketShutdown.Both);
-                    }
+                        XmlSerializer serializer = new XmlSerializer(typeof(LogType));
+                        using (StreamWriter client_out = new StreamWriter(client.GetStream()))
+                        {
+                            serializer.Serialize(client_out, log);
+                            // Shutdown Clientside sending to signal end of stream
+                            client.Client.Shutdown(SocketShutdown.Both);
+                        }
+                    });
                 }
 
                 // Manage of Socket's Exceptions 
