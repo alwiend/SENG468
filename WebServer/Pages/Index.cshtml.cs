@@ -287,68 +287,9 @@ namespace WebServer.Pages
          */
         async Task<string> GetServiceResult(ServiceConstant sc, UserCommandType userCommand)
         {
-            await _writer.WriteRecord(userCommand);
-            string result = "";
-            try
-            {
-                var ipAddr = Dns.GetHostAddresses(sc.ServiceName).FirstOrDefault();
-                //var ipAddr = IPAddress.Loopback;
-                IPEndPoint localEndPoint = new IPEndPoint(ipAddr, sc.Port);
-                TcpClient client = new TcpClient(AddressFamily.InterNetwork);
-                // Connect Socket to the remote  
-                // endpoint using method Connect() 
-                client.Connect(localEndPoint);
-                StreamWriter client_out = null;
-                StreamReader client_in = null;
-
-                try
-                {
-                    result = await Task.Run(() =>
-                    {
-                        client_out = new StreamWriter(client.GetStream());
-                        client_in = new StreamReader(client.GetStream());
-
-                        XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
-                        serializer.Serialize(client_out, userCommand);
-                        client_out.Flush();
-                        // Shutdown Clientside sending to signal end of stream
-                        client.Client.Shutdown(SocketShutdown.Send);
-                        var data = client_in.ReadToEnd();
-                        client.Client.Shutdown(SocketShutdown.Receive);
-                        return data;
-                    });
-                }
-
-                // Manage of Socket's Exceptions 
-                catch (ArgumentNullException ane)
-                {
-
-                    Console.WriteLine($"ArgumentNullException : {ane.ToString()}");
-                }
-
-                catch (SocketException se)
-                {
-
-                    Console.WriteLine($"SocketException : {se.ToString()}");
-                }
-
-                catch (Exception e)
-                {
-                    Console.WriteLine($"Unexpected exception : {e.ToString()}");
-                } finally
-                {
-                    client_out.Close();
-                    client_in.Close();
-                }
-                client.Close();
-                client.Dispose();
-            }
-            catch (Exception e)
-            {
-
-                Console.WriteLine(e.ToString());
-            }
-            return result;
+            await _writer.WriteRecord(userCommand).ConfigureAwait(false);
+            ServiceConnection conn = new ServiceConnection(sc);
+            return await conn.Send(userCommand, true).ConfigureAwait(false);
         }
     }
 }

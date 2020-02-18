@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using System.Timers;
 using Utilities;
 
@@ -16,8 +17,6 @@ namespace BuyTriggerService
         public decimal Amount { get; }
         public decimal Trigger { get; }
 
-        Timer _timer;
-
         public BuyTriggerTimer(string user, string ss, decimal amount, decimal trigger)
         {
             User = user;
@@ -25,37 +24,40 @@ namespace BuyTriggerService
             Type = "BUY";
             Amount = amount;
             Trigger = trigger;
-            _timer = new Timer() { Enabled = false };
-            _timer.Elapsed += Run;
         }
 
-        public void Start()
+        public async Task Start()
         {
-            Run(null, null);
+            await Run().ConfigureAwait(false);
         }
 
-        void Run(object source, ElapsedEventArgs eventArgs)
+        async Task Run()
         {
-            _timer.Enabled = false;
-            // Check if trigger still exists
-            if (!TriggerExists())
+            while (true)
             {
-                return;
-            }
 
-            ServiceConnection conn = new ServiceConnection(Constants.Server.QUOTE_SERVER);
-            string response = conn.Send($"{StockSymbol},{User}", true);
-            string[] args = response.Split(",");
+                // Check if trigger still exists
+                if (!TriggerExists())
+                {
+                    return;
+                }
 
-            decimal cost = Convert.ToDecimal(args[0]);
-            if(cost > Trigger)
-            {
-                // Run trigger again
-                _timer.Interval = 60000 - (Unix.TimeStamp - Convert.ToInt64(args[3]));
-                _timer.Enabled = true;
-                return;
+                ServiceConnection conn = new ServiceConnection(Constants.Server.QUOTE_SERVER);
+                string response = await conn.Send($"{StockSymbol},{User}", true).ConfigureAwait(false);
+                string[] args = response.Split(",");
+
+                decimal cost = Convert.ToDecimal(args[0]);
+                if (cost > Trigger)
+                {
+                    // Run trigger again
+                    int interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[3])));
+                    await Task.Delay(interval).ConfigureAwait(false);
+                } else
+                {
+                    BuyStock(cost);
+                    return;
+                }
             }
-            BuyStock(cost);
         }
 
         bool TriggerExists()

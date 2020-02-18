@@ -15,14 +15,12 @@ namespace Utilities
         /*
          * @param record The event to pass to the Audit server
          */
-        public async Task<string> WriteRecord(object record)
+        public async Task WriteRecord(object record)
         {
-            string result = "";
-
             try
             {
                 TcpClient client = new TcpClient(AddressFamily.InterNetwork);
-                await client.ConnectAsync(Constants.Server.AUDIT_SERVER.ServiceName, Constants.Server.AUDIT_SERVER.Port);
+                await client.ConnectAsync(Constants.Server.AUDIT_SERVER.ServiceName, Constants.Server.AUDIT_SERVER.Port).ConfigureAwait(false);
 
                 try
                 {
@@ -31,18 +29,17 @@ namespace Utilities
                         Items = new object[] { record }
                     };
 
-
-
-                    await Task.Run(() =>
+                    await Task.Run(async () =>
                     {
                         XmlSerializer serializer = new XmlSerializer(typeof(LogType));
                         using (StreamWriter client_out = new StreamWriter(client.GetStream()))
                         {
                             serializer.Serialize(client_out, log);
+                            await client_out.FlushAsync().ConfigureAwait(false);
                             // Shutdown Clientside sending to signal end of stream
                             client.Client.Shutdown(SocketShutdown.Both);
                         }
-                    });
+                    }).ConfigureAwait(false);
                 }
 
                 // Manage of Socket's Exceptions 
@@ -69,8 +66,6 @@ namespace Utilities
             {
                 Console.WriteLine("Failed to connect: {0}", ex.Message);
             }
-
-            return result;
         }
     }
 }

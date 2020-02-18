@@ -6,6 +6,7 @@ using Database;
 using Newtonsoft.Json;
 using Utilities;
 using Constants;
+using System.Threading.Tasks;
 
 namespace BuyService
 {
@@ -13,10 +14,9 @@ namespace BuyService
     {
         public BuyCancelCommand(ServiceConstant sc, IAuditWriter aw) : base(sc, aw)
         {
-            DataReceived = CancelBuy;
         }
 
-        void LogTransactionEvent(UserCommandType command)
+        async Task LogTransactionEvent(UserCommandType command)
         {
             AccountTransactionType transaction = new AccountTransactionType()
             {
@@ -27,10 +27,10 @@ namespace BuyService
                 username = command.username,
                 funds = command.funds
             };
-            Auditor.WriteRecord(transaction);
+            await Auditor.WriteRecord(transaction).ConfigureAwait(false);
         }
 
-        string LogUserErrorEvent(UserCommandType command)
+        async Task<string> LogUserErrorEvent(UserCommandType command)
         {
             ErrorEventType error = new ErrorEventType()
             {
@@ -41,11 +41,11 @@ namespace BuyService
                 username = command.username,
                 errorMessage = "No recent transactions to cancel."
             };
-            Auditor.WriteRecord(error);
+            await Auditor.WriteRecord(error).ConfigureAwait(false);
             return error.errorMessage;
         }
 
-        string LogDBErrorEvent(UserCommandType command)
+        async Task<string> LogDBErrorEvent(UserCommandType command)
         {
             ErrorEventType error = new ErrorEventType()
             {
@@ -58,11 +58,11 @@ namespace BuyService
                 funds = command.funds,
                 errorMessage = "Error getting account details"
             };
-            Auditor.WriteRecord(error);
+            await Auditor.WriteRecord(error).ConfigureAwait(false);
             return error.errorMessage;
         }
 
-        void LogDebugEvent(UserCommandType command, Exception e)
+        async Task LogDebugEvent(UserCommandType command, Exception e)
         {
             DebugType bug = new DebugType()
             {
@@ -72,10 +72,10 @@ namespace BuyService
                 command = command.command,
                 debugMessage = e.ToString()
             };
-            Auditor.WriteRecord(bug);
+            await Auditor.WriteRecord(bug).ConfigureAwait(false);
         }
 
-        public string CancelBuy(UserCommandType command)
+        protected override async Task<string> DataReceived(UserCommandType command)
         {
             string result;
             double amount;
@@ -128,16 +128,16 @@ namespace BuyService
                     command.funds += (decimal)(amount / 100);
                 } else
                 {
-                    result = LogUserErrorEvent(command);
+                    result = await LogUserErrorEvent(command).ConfigureAwait(false);
                 }
                
             }
             catch (Exception e)
             {
-                result = LogDBErrorEvent(command);
-                LogDebugEvent(command, e);
+                result = await LogDBErrorEvent(command).ConfigureAwait(false);
+                await LogDebugEvent(command, e).ConfigureAwait(false);
             }
-            LogTransactionEvent(command); // Logs all funds returned into the account
+            await LogTransactionEvent(command).ConfigureAwait(false); // Logs all funds returned into the account
             return result;
         }
     }

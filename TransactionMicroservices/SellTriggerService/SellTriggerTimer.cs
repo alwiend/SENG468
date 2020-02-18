@@ -3,20 +3,19 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using System.Timers;
 using Utilities;
 
 namespace SellTriggerService
 {
-    public sealed class SellTriggerTimer : IDisposable
+    public sealed class SellTriggerTimer
     {
         public string User { get; }
         public string StockSymbol { get; }
         public string Type { get; }
         public decimal Amount { get; }
         public decimal Trigger { get; }
-
-        readonly Timer timer;
 
         public SellTriggerTimer(string user, string ss, decimal amount, decimal trigger)
         {
@@ -25,37 +24,40 @@ namespace SellTriggerService
             Type = "SELL";
             Amount = amount;
             Trigger = trigger;
-            timer = new Timer() { Enabled = false };
-            timer.Elapsed += Run;
         }
 
-        public void Start()
+        public async Task Start()
         {
-            Run(null, null);
+            await Run().ConfigureAwait(false);
         }
 
-        void Run(object source, ElapsedEventArgs eventArgs)
+        async Task Run()
         {
-            timer.Enabled = false;
-            // Check if trigger still exists
-            if (!TriggerExists())
+            while (true)
             {
-                return;
-            }
+                // Check if trigger still exists
+                if (!TriggerExists())
+                {
+                    return;
+                }
 
-            ServiceConnection conn = new ServiceConnection(Constants.Server.QUOTE_SERVER);
-            string response = conn.Send($"{StockSymbol},{User}", true);
-            string[] args = response.Split(",");
+                ServiceConnection conn = new ServiceConnection(Constants.Server.QUOTE_SERVER);
+                string response = await conn.Send($"{StockSymbol},{User}", true).ConfigureAwait(false);
+                string[] args = response.Split(",");
 
-            decimal cost = Convert.ToDecimal(args[0]);
-            if(cost < Trigger)
-            {
-                // Run trigger again
-                timer.Interval = 60000 - (Unix.TimeStamp - Convert.ToInt64(args[3]));
-                timer.Enabled = true;
-                return;
+                decimal cost = Convert.ToDecimal(args[0]);
+                if (cost < Trigger)
+                {
+                    // Run trigger again
+
+                    int interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[3])));
+                    await Task.Delay(interval).ConfigureAwait(false);
+                } else
+                {
+                    SellStock(cost);
+                    return;
+                }
             }
-            SellStock(cost);
         }
 
         bool TriggerExists()
@@ -77,7 +79,7 @@ namespace SellTriggerService
 
             MySQL db = new MySQL();
             // Put leftover amount back in users account
-            db.ExecuteNonQuery($"UPDATE user SET money=money+{(int)(amount*100)} WHERE userid='{User}'");
+            db.ExecuteNonQuery($"UPDATE user SET money=money+{(int)(amount * 100)} WHERE userid='{User}'");
             string query = $"INSERT INTO stocks (userid, stock, price) " +
                 $"VALUES ('{User}', '{StockSymbol}', {(int)(leftover * 100)}) " +
                 $"ON DUPLICATE KEY UPDATE price = price + {(int)(leftover * 100)}";
@@ -85,11 +87,6 @@ namespace SellTriggerService
             query = $"DELETE FROM triggers " +
                 $"WHERE userid='{User}' AND stock='{StockSymbol}' AND triggerType='SELL'";
             db.ExecuteNonQuery(query);
-        }
-
-        public void Dispose()
-        {
-            timer.Dispose();
         }
     }
 }

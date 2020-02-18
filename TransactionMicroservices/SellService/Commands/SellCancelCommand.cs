@@ -6,6 +6,7 @@ using Database;
 using Newtonsoft.Json;
 using Utilities;
 using Constants;
+using System.Threading.Tasks;
 
 namespace SellService
 {
@@ -13,70 +14,9 @@ namespace SellService
     {
         public SellCancelCommand(ServiceConstant sc, IAuditWriter aw) : base(sc, aw)
         {
-            DataReceived = CancelSell;
         }
 
-        void LogTransactionEvent(UserCommandType command)
-        {
-            SystemEventType transaction = new SystemEventType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                username = command.username,
-                funds = command.funds,
-                stockSymbol = command.stockSymbol          
-            };
-            Auditor.WriteRecord(transaction);
-        }
-
-        string LogUserErrorEvent(UserCommandType command)
-        {
-            ErrorEventType error = new ErrorEventType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                username = command.username,
-                errorMessage = "No recent transactions to cancel."
-            };
-            Auditor.WriteRecord(error);
-            return error.errorMessage;
-        }
-
-        string LogDBErrorEvent(UserCommandType command)
-        {
-            ErrorEventType error = new ErrorEventType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                username = command.username,
-                stockSymbol = command.stockSymbol,
-                funds = command.funds,
-                errorMessage = "Error getting account details"
-            };
-            Auditor.WriteRecord(error);
-            return error.errorMessage;
-        }
-
-        void LogDebugEvent(UserCommandType command, Exception e)
-        {
-            DebugType bug = new DebugType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                debugMessage = e.ToString()
-            };
-            Auditor.WriteRecord(bug);
-        }
-
-        object CancelSell(UserCommandType command)
+        protected override async Task<string> DataReceived(UserCommandType command)
         {
             string result;
             double amount;
@@ -122,15 +62,14 @@ namespace SellService
                     command.stockSymbol = stock;
                 } else
                 {
-                    result = LogUserErrorEvent(command);
+                    result = await LogErrorEvent(command, "No recent transactions to cancel.").ConfigureAwait(false);
                 }
             }
             catch (Exception e)
             {
-                result = LogDBErrorEvent(command);
-                LogDebugEvent(command, e);
+                result = await LogErrorEvent(command, "Error getting account details").ConfigureAwait(false);
+                await LogDebugEvent(command, e.Message).ConfigureAwait(false);
             }
-            LogTransactionEvent(command);
             return result;
         }
     }

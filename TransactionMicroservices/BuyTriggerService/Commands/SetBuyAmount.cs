@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using Utilities;
 
 namespace BuyTriggerService
@@ -13,69 +14,9 @@ namespace BuyTriggerService
     {
         public SetBuyAmount(ServiceConstant sc, AuditWriter aw) : base(sc, aw)
         {
-            DataReceived = SetAmount;
         }
 
-        void LogTransactionEvent(UserCommandType command)
-        {
-            AccountTransactionType transaction = new AccountTransactionType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                action = "remove",
-                username = command.username,
-                funds = command.funds
-            };
-            Auditor.WriteRecord(transaction);
-        }
-
-        string LogUserErrorEvent(UserCommandType command)
-        {
-            ErrorEventType error = new ErrorEventType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                username = command.username,
-                errorMessage = "Trigger/User does not exist OR insufficeint funds"
-            };
-            Auditor.WriteRecord(error);
-            return error.errorMessage;
-        }
-
-        string LogDBErrorEvent(UserCommandType command)
-        {
-            ErrorEventType error = new ErrorEventType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                username = command.username,
-                stockSymbol = command.stockSymbol,
-                funds = command.funds,
-                errorMessage = "Error processing command"
-            };
-            Auditor.WriteRecord(error);
-            return error.errorMessage;
-        }
-
-        void LogDebugEvent(UserCommandType command, Exception ex)
-        {
-            DebugType bug = new DebugType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                debugMessage = ex.ToString()
-            };
-            Auditor.WriteRecord(bug);
-        }
-
-        private string SetAmount(UserCommandType command)
+        protected override async Task<string> DataReceived(UserCommandType command)
         {
             string result = "";
             try
@@ -86,14 +27,14 @@ namespace BuyTriggerService
                 var userObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
                 if (userObject.Length <= 0)
                 {
-                    return LogUserErrorEvent(command);
+                    return await LogErrorEvent(command, "User does not exist").ConfigureAwait(false);
                 }
 
                 decimal balance = decimal.Parse(userObject[0]["money"]) / 100.0m; // normalize
 
                 if (balance < command.funds)
                 {
-                    return LogUserErrorEvent(command);
+                    return await LogErrorEvent(command, "Insufficeint funds");
                 }
 
                 // Check if there is already a trigger
@@ -102,7 +43,7 @@ namespace BuyTriggerService
                 var triggerObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrigger);
                 if (triggerObject.Length > 0)
                 {
-                    return LogUserErrorEvent(command);
+                    return await LogErrorEvent(command, "Trigger already exists").ConfigureAwait(false);
                 }
 
                 // Set aside required cash
@@ -114,13 +55,13 @@ namespace BuyTriggerService
                     $"VALUES ('{command.username}','{command.stockSymbol}',{(long)(command.funds*100)},'BUY')");
 
                 result = "Trigger Created";
+                await LogTransactionEvent(command, "remove").ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                LogDebugEvent(command, ex);
-                return LogDBErrorEvent(command);
+                await LogDebugEvent(command, ex.Message).ConfigureAwait(false);
+                return await LogErrorEvent(command, "Error processing command").ConfigureAwait(false);
             }
-            LogTransactionEvent(command);
             return result;
         }
     }
