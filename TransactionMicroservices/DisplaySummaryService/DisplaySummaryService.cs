@@ -27,20 +27,18 @@ namespace DisplaySummaryService
             try
             {
                 MySQL db = new MySQL();
-                var hasUser = db.Execute($"SELECT userid, money FROM user WHERE userid='{command.username}'");
-                var userObj = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
+                var userObj = await db.ExecuteAsync($"SELECT userid, money FROM user WHERE userid='{command.username}'").ConfigureAwait(false);
                 if (userObj.Length > 0)
                 {
-                    result = $"User {command.username} has ${double.Parse(userObj[0]["money"]) / 100} in your account.\n";
-                    command.funds = decimal.Parse(userObj[0]["money"]) / 100;
-                    var hasStock = db.Execute($"SELECT stock, price FROM stocks WHERE userid='{command.username}'");
-                    var stockObj = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasStock);
+                    result = $"User {command.username} has ${Convert.ToDouble(userObj[0]["money"]) / 100} in your account.\n";
+                    command.funds = Convert.ToDecimal(userObj[0]["money"]) / 100;
+                    var stockObj = await db.ExecuteAsync($"SELECT stock, price FROM stocks WHERE userid='{command.username}'").ConfigureAwait(false);
                     if (stockObj.Length > 0)
                     {
                         result += $"{command.username} owns the following stocks:\n";
                         for (int i = 0; i < stockObj.Length; i++)
                         {
-                            result += $"{stockObj[i]["stock"]}: {double.Parse(stockObj[i]["price"]) / 100}\n";
+                            result += $"{stockObj[i]["stock"]}: {Convert.ToDecimal(stockObj[i]["price"]) / 100m}\n";
                         }
                     }
                     

@@ -34,17 +34,16 @@ namespace AddService
             try
             {
                 MySQL db = new MySQL();
-                var hasUser = db.Execute($"SELECT userid, money FROM user WHERE userid='{command.username}'");
-                var userObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
+                var userObject = await db.ExecuteAsync($"SELECT userid, money FROM user WHERE userid='{command.username}'").ConfigureAwait(false);
                 long funds = (long)(command.funds * 100);
                 string query = $"INSERT INTO user (userid, money) VALUES ('{command.username}',{funds})";
                 if (userObject.Length > 0)
                 {
-                    funds += long.Parse(userObject[0]["money"]);
+                    funds += long.Parse(userObject[0]["money"].ToString());
                     query = $"UPDATE user SET money={funds} WHERE userid='{command.username}'";
                 }
 
-                db.ExecuteNonQuery(query);
+                await db.ExecuteNonQueryAsync(query).ConfigureAwait(false);
                 result = $"Successfully added {command.funds} into {command.username}'s account";
 
                 await LogTransactionEvent(command, "add").ConfigureAwait(false);

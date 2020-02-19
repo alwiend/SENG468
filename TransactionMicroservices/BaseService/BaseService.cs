@@ -45,7 +45,7 @@ namespace Base
             };
             if (command.fundsSpecified)
                 sysEvent.funds = command.funds;
-            await Auditor.WriteRecord(sysEvent).ConfigureAwait(false);
+            Auditor.WriteRecord(sysEvent).ConfigureAwait(false);
         }
 
         protected async Task LogTransactionEvent(UserCommandType command, string action)
@@ -59,12 +59,10 @@ namespace Base
                 username = command.username,
                 funds = command.funds
             };
-            await Auditor.WriteRecord(transaction).ConfigureAwait(false);
+            Auditor.WriteRecord(transaction).ConfigureAwait(false);
         }
 
-        protected
-
-        async Task<string> LogQuoteServerEvent(UserCommandType command, string quote)
+        protected async Task<string> LogQuoteServerEvent(UserCommandType command, string quote)
         {
             //Cost,StockSymbol,UserId,Timestamp,CryptoKey
             string[] args = quote.Split(",");
@@ -79,7 +77,7 @@ namespace Base
                 quoteServerTime = args[3],
                 cryptokey = args[4]
             };
-            await Auditor.WriteRecord(stockQuote).ConfigureAwait(false);
+            Auditor.WriteRecord(stockQuote).ConfigureAwait(false);
             return stockQuote.price.ToString();
         }
 
@@ -96,7 +94,7 @@ namespace Base
                 funds = command.funds,
                 errorMessage = err
             };
-            await Auditor.WriteRecord(error).ConfigureAwait(false);
+            Auditor.WriteRecord(error).ConfigureAwait(false);
             return error.errorMessage;
         }
 
@@ -110,7 +108,7 @@ namespace Base
                 command = command.command,
                 debugMessage = err
             };
-            await Auditor.WriteRecord(bug).ConfigureAwait(false);
+            Auditor.WriteRecord(bug).ConfigureAwait(false);
         }
 
         protected virtual Task<string> DataReceived(UserCommandType userCommand) { return null; }

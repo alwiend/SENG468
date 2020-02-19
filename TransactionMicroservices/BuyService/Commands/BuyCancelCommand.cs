@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Text;
 using Base;
 using Database;
-using Newtonsoft.Json;
 using Utilities;
 using Constants;
 using System.Threading.Tasks;
@@ -84,18 +83,17 @@ namespace BuyService
             {
                 MySQL db = new MySQL();
 
-                var balance = db.Execute($"SELECT money FROM user WHERE userid='{command.username}'");
-                var userBalance = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(balance);
-                var stockReq = db.Execute($"SELECT stock, price, transTime FROM transactions WHERE userid='{command.username}' AND transType='BUY'");
-                var stockObj = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(stockReq);
+                var userBalance = await db.ExecuteAsync($"SELECT money FROM user WHERE userid='{command.username}'").ConfigureAwait(false);
+                var stockObj = await db.ExecuteAsync($"SELECT stock, price, transTime FROM transactions " +
+                    $"WHERE userid='{command.username}' AND transType='BUY'").ConfigureAwait(false);
                 int minTimeIndex = -1;
                 double minTime = 60.1;
                 command.funds = 0;
                 for(int i = 0; i < stockObj.Length; i++)
                 {
-                    amount = double.Parse(stockObj[i]["price"])/100;
-                    long tTime = long.Parse(stockObj[i]["transTime"]);
-                    DateTimeOffset transTime = DateTimeOffset.FromUnixTimeSeconds(long.Parse(stockObj[i]["transTime"])/1000);
+                    amount = double.Parse(stockObj[i]["price"].ToString())/100;
+                    long tTime = long.Parse(stockObj[i]["transTime"].ToString());
+                    DateTimeOffset transTime = DateTimeOffset.FromUnixTimeSeconds(long.Parse(stockObj[i]["transTime"].ToString())/1000);
                     double diff = (currTime - transTime).TotalSeconds;
                     if (diff < minTime)
                     {
@@ -105,9 +103,10 @@ namespace BuyService
                     {
                         if (diff > 60)
                         {
-                            int newB = int.Parse(userBalance[0]["money"]) + (int)(amount*100);
-                            db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND transTime='{tTime}' AND transType='BUY'");
-                            db.ExecuteNonQuery($"UPDATE user SET money={newB} WHERE userid='{command.username}'");
+                            int newB = int.Parse(userBalance[0]["money"].ToString()) + (int)(amount*100);
+                            await db.ExecuteNonQueryAsync($"DELETE FROM transactions " +
+                                $"WHERE userid='{command.username}' AND transTime='{tTime}' AND transType='BUY'").ConfigureAwait(false);
+                            await db.ExecuteNonQueryAsync($"UPDATE user SET money={newB} WHERE userid='{command.username}'").ConfigureAwait(false);
                             command.funds += (decimal)amount;
                         }
                     }
@@ -115,16 +114,17 @@ namespace BuyService
                 
                 if (minTimeIndex >= 0)
                 {
-                    amount = int.Parse(stockObj[minTimeIndex]["price"]);
-                    string stock = stockObj[minTimeIndex]["stock"];
-                    string tTime = stockObj[minTimeIndex]["transTime"];
-                    var userQuery = db.Execute($"SELECT money FROM user WHERE userid='{command.username}'");
-                    var queryRes = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(userQuery);
-                    int newB = int.Parse(queryRes[0]["money"]) + (int)amount;
-                    db.ExecuteNonQuery($"UPDATE user SET money={newB} WHERE userid='{command.username}'");
+                    amount = int.Parse(stockObj[minTimeIndex]["price"].ToString());
+                    string stock = stockObj[minTimeIndex]["stock"].ToString();
+                    string tTime = stockObj[minTimeIndex]["transTime"].ToString();
+                    var queryRes = await db.ExecuteAsync($"SELECT money FROM user WHERE userid='{command.username}'").ConfigureAwait(false);
+                    int newB = int.Parse(queryRes[0]["money"].ToString()) + (int)amount;
+                    await db.ExecuteNonQueryAsync($"UPDATE user SET money={newB} WHERE userid='{command.username}'").ConfigureAwait(false);
                     result = $"Successfully canceled most recent buy command.\n" +
                         $"{amount/100} has been added back into your account,";
-                    db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND stock='{stock}' AND price={amount} AND transType='BUY' AND transTime='{tTime}'");
+                    await db.ExecuteNonQueryAsync($"DELETE FROM transactions " +
+                        $"WHERE userid='{command.username}' AND stock='{stock}' " +
+                        $"AND price={amount} AND transType='BUY' AND transTime='{tTime}'").ConfigureAwait(false);
                     command.funds += (decimal)(amount / 100);
                 } else
                 {

@@ -1,81 +1,52 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Data.Common;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
-using Newtonsoft.Json;
 
 namespace Database
 {
     public class MySQL
     {
+        private static string ConnectionString = "server=databaseserver_db_1;port=3306;database=db;uid=user;pwd=password;";
 
-        public string Execute(string command)
+        public async Task<Dictionary<string,object>[]> ExecuteAsync(string command)
         {
-            string connetionString = "server=databaseserver_db_1;port=3306;database=db;uid=user;pwd=password;";
-            MySqlConnection cnn = new MySqlConnection(connetionString);
-            try
+            List<Dictionary<string, object>> results = new List<Dictionary<string, object>>();
+            using (MySqlConnection cnn = new MySqlConnection(ConnectionString))
             {
-                cnn.Open();
-
-                MySqlCommand cmd = new MySqlCommand(command, cnn);
-                MySqlDataReader rdr = cmd.ExecuteReader();
-
-                StringBuilder sb = new StringBuilder();
-                StringWriter sw = new StringWriter(sb);
-
-                using (JsonWriter jsonWriter = new JsonTextWriter(sw))
+                using (MySqlCommand cmd = new MySqlCommand(command, cnn))
                 {
-                    jsonWriter.WriteStartArray();
-
-                    while (rdr.Read())
+                    await cnn.OpenAsync().ConfigureAwait(false);
+                    var rdr = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+                    while(await rdr.ReadAsync().ConfigureAwait(false))
                     {
-                        jsonWriter.WriteStartObject();
-
-                        int fields = rdr.FieldCount;
-
-                        for (int i = 0; i < fields; i++)
+                        Dictionary<string, object> row = new Dictionary<string, object>();
+                        for (int i = 0; i < rdr.FieldCount; i++)
                         {
-                            jsonWriter.WritePropertyName(rdr.GetName(i));
-                            jsonWriter.WriteValue(rdr[i]);
+                            row.Add(rdr.GetName(i), rdr[i]);
                         }
-
-                        jsonWriter.WriteEndObject();
+                        results.Add(row);
                     }
-
-                    jsonWriter.WriteEndArray();
-
                 }
-                rdr.Close();
-
-                cnn.Close();
-                return sw.ToString();
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
-            return "";
+            return results.ToArray();
         }
 
-        public string ExecuteNonQuery(string command)
+        public async Task<int> ExecuteNonQueryAsync(string command)
         {
-            string connetionString = "server=databaseserver_db_1;port=3306;database=db;uid=user;pwd=password;";
-            MySqlConnection cnn = new MySqlConnection(connetionString);
-            try
+            int rows = 0;
+            using (MySqlConnection cnn = new MySqlConnection(ConnectionString))
             {
-                cnn.Open();
-
-                MySqlCommand cmd = new MySqlCommand(command, cnn);
-                var result = cmd.ExecuteNonQuery();
-
-                cnn.Close();
-                return $"{{'rows': {result}}}";
+                using (MySqlCommand cmd = new MySqlCommand(command, cnn))
+                {
+                    await cnn.OpenAsync().ConfigureAwait(false);
+                    rows = await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+                }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
-            return $"{{'rows': 0}}";
+            return rows;
         }
     }
 }
