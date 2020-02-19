@@ -1,4 +1,5 @@
 ﻿using Database;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -36,7 +37,7 @@ namespace BuyTriggerService
             {
 
                 // Check if trigger still exists
-                if (!await TriggerExists().ConfigureAwait(false))
+                if (!TriggerExists())
                 {
                     return;
                 }
@@ -53,23 +54,24 @@ namespace BuyTriggerService
                     await Task.Delay(interval).ConfigureAwait(false);
                 } else
                 {
-                    await BuyStock(cost).ConfigureAwait(false);
+                    BuyStock(cost);
                     return;
                 }
             }
         }
 
-        async Task<bool> TriggerExists()
+        bool TriggerExists()
         {
             MySQL db = new MySQL();
             string query = $"SELECT 1 FROM triggers " +
                 $"WHERE userid='{User}' AND stock='{StockSymbol}' AND triggerType='BUY' " +
                 $"AND amount={(int)(Amount * 100)} AND triggerAmount={(int)(Trigger * 100)}";
-            var triggerObject = await db.ExecuteAsync(query).ConfigureAwait(false);
+            var hasTrigger = db.Execute(query);
+            var triggerObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrigger);
             return triggerObject.Length == 1;
         }
 
-        async Task BuyStock(decimal cost)
+        void BuyStock(decimal cost)
         {
             decimal numStock = Math.Floor(Amount / cost); // most whole number stock that can buy
             decimal amount = numStock * cost; // total amount spent
@@ -77,14 +79,14 @@ namespace BuyTriggerService
 
             MySQL db = new MySQL();
             // Put leftover amount back in users account
-            await db.ExecuteNonQueryAsync($"UPDATE user SET money = money+{(int)(leftover*100)} WHERE userid='{User}'").ConfigureAwait(false);
+            db.ExecuteNonQuery($"UPDATE user SET money = money+{(int)(leftover*100)} WHERE userid='{User}'");
             string query = $"INSERT INTO stocks (userid, stock, price) " +
                 $"VALUES ('{User}', '{StockSymbol}', {(int)(amount * 100)}) " +
                 $"ON DUPLICATE KEY UPDATE price = price + {(int)(amount * 100)}";
-            await db.ExecuteNonQueryAsync(query).ConfigureAwait(false);
+            db.ExecuteNonQuery(query);
             query = $"DELETE FROM triggers " +
                 $"WHERE userid='{User}' AND stock='{StockSymbol}' AND triggerType='BUY'";
-            await db.ExecuteNonQueryAsync(query).ConfigureAwait(false);
+            db.ExecuteNonQuery(query);
         }
 
     }

@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using Base;
 using Database;
+using Newtonsoft.Json;
 using Utilities;
 using Constants;
 using System.Threading.Tasks;
@@ -27,10 +28,11 @@ namespace SellService
             try
             {
                 MySQL db = new MySQL();
-                var userObj = await db.ExecuteAsync($"SELECT price FROM stocks WHERE userid='{command.username}' AND stock='{command.stockSymbol}'").ConfigureAwait(false);
+                var hasUser = db.Execute($"SELECT price FROM stocks WHERE userid='{command.username}' AND stock='{command.stockSymbol}'");
+                var userObj = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
                 if (userObj.Length > 0)
                 {
-                    stockBalance = Convert.ToDouble(userObj[0]["price"]) / 100;
+                    stockBalance = double.Parse(userObj[0]["price"]) / 100;
                     if (stockBalance < (double)command.funds)
                     {
                         return await LogErrorEvent(command, "Insufficient stocks").ConfigureAwait(false);
@@ -42,11 +44,9 @@ namespace SellService
                     {
                         return await LogErrorEvent(command, "Insufficient stocks").ConfigureAwait(false);
                     }
-                    await db.ExecuteNonQueryAsync($"INSERT INTO transactions (userid, stock, price, transType, transTime) " +
-                        $"VALUES ('{command.username}','{command.stockSymbol}',{amount*100},'SELL','{Unix.TimeStamp}')").ConfigureAwait(false);
+                    db.ExecuteNonQuery($"INSERT INTO transactions (userid, stock, price, transType, transTime) VALUES ('{command.username}','{command.stockSymbol}',{amount*100},'SELL','{Unix.TimeStamp}')");
                     result = $"${amount} of stock {command.stockSymbol} is available to sell at ${stockCost} per share";
-                    await db.ExecuteNonQueryAsync($"UPDATE stocks SET price={leftoverStock*100} " +
-                        $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}'").ConfigureAwait(false);
+                    db.ExecuteNonQuery($"UPDATE stocks SET price={leftoverStock*100} WHERE userid='{command.username}' AND stock='{command.stockSymbol}'");
                     command.funds = (decimal)amount;
                 } else
                 {

@@ -5,62 +5,91 @@ using System.Net.Sockets;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using System.IO;
-using Utilities;
 
 namespace QuoteServer
 {
-    class Program
-    {
+	class Program
+	{
 
-        static Random rnd = new Random(DateTime.UtcNow.Second);
-        // Main Method 
-        static async Task Main(string[] args)
-        {
-            await ExecuteServer().ConfigureAwait(false);
-        }
+		// Main Method 
+		static void Main(string[] args)
+		{
+			ExecuteServer();
+		}
 
-        static async Task ProcessClient(TcpClient client)
-        {
-            try
-            {
-                using StreamReader client_in = new StreamReader(client.GetStream());
-                var request = await client_in.ReadToEndAsync().ConfigureAwait(false);
+		public static void ExecuteServer()
+		{
+			// A list of quotes
+			Dictionary<string, Quote> quotes = new Dictionary<string, Quote>();
 
-                var args = request.Split(",");
+			IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, 4448);
 
+			// Creation TCP/IP Socket using 
+			// Socket Class Costructor 
+			Socket listener = new Socket(IPAddress.Any.AddressFamily,
+						SocketType.Stream, ProtocolType.Tcp);
 
-                //Cost,StockSymbol,UserId,Timestamp,CryptoKey
-                var cost = (rnd.Next(100, 10000))/100.00;
-                string retData = $"{cost},{args[0]},{args[1]},{Unix.TimeStamp},CryptoKey{args[0]}{args[1]}{cost}";
+			try
+			{
 
-                using StreamWriter client_out = new StreamWriter(client.GetStream());
-                await client_out.WriteAsync(retData).ConfigureAwait(false);
-                await client_out.FlushAsync().ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
-            finally
-            {
-                client.Close();
-            }
-        }
+				// Using Bind() method we associate a 
+				// network address to the Server Socket 
+				// All client that will connect to this 
+				// Server Socket must know this network 
+				// Address 
+				listener.Bind(localEndPoint);
 
-        static async Task ExecuteServer()
-        {
-            IPAddress ipAddr = IPAddress.Any;
-            IPEndPoint _localEndPoint = new IPEndPoint(ipAddr, 4448);
+				// Using Listen() method we create 
+				// the Client list that will want 
+				// to connect to Server 
+				listener.Listen(10);
 
-            TcpListener _listener = new TcpListener(_localEndPoint);
-            _listener.Start();
-            while (true)
-            {
-                var client = await _listener.AcceptTcpClientAsync().ConfigureAwait(false);
-                ProcessClient(client);
-            }
-        }
-    }
+				while (true)
+				{
+
+					Console.WriteLine($"Waiting connection on {localEndPoint.Address}:{localEndPoint.Port} address family {listener.AddressFamily}... ");
+
+					// Suspend while waiting for 
+					// incoming connection Using 
+					// Accept() method the server 
+					// will accept connection of client 
+					Socket clientSocket = listener.Accept();
+
+					Console.WriteLine("Client connected");
+
+					// Data buffer 
+					byte[] bytes = new Byte[1024];
+
+					// Message expected to just receive quote name
+					// Quote names are case sensitive for simplicity
+					int numByte = clientSocket.Receive(bytes);
+					string name = Encoding.ASCII.GetString(bytes, 0, numByte);
+
+					// Returns the quote cost
+					if (!quotes.ContainsKey(name))
+					{
+						quotes.Add(name, new Quote(name));
+					}
+					double cost = quotes[name].Cost;
+					Console.WriteLine($"Quoting {name}: ${cost}");
+
+					// Send a message to Client 
+					// using Send() method 
+					clientSocket.Send(Encoding.ASCII.GetBytes(cost.ToString()));
+
+					// Close client Socket using the 
+					// Close() method. After closing, 
+					// we can use the closed Socket 
+					// for a new Client Connection 
+					clientSocket.Shutdown(SocketShutdown.Both);
+					clientSocket.Close();
+				}
+			}
+
+			catch (Exception e)
+			{
+				Console.WriteLine(e.ToString());
+			}
+		}
+	}
 }

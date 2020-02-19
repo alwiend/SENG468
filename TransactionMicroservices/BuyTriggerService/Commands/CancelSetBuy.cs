@@ -1,6 +1,7 @@
 ﻿using Base;
 using Constants;
 using Database;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -23,19 +24,20 @@ namespace BuyTriggerService
                 // Check if trigger exists
                 MySQL db = new MySQL(); 
                 
-                var triggerObject = await db.ExecuteAsync($"SELECT amount FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'").ConfigureAwait(false);
+                var hasTrigger = db.Execute($"SELECT amount FROM triggers " +
+                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'");
+                var triggerObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrigger);
                 if (triggerObject.Length <= 0)
                 {
                     return await LogErrorEvent(command, "Trigger does not exist").ConfigureAwait(false);
                 }
 
                 // Update user account
-                await db.ExecuteNonQueryAsync($"UPDATE user SET money=money+{triggerObject[0]["amount"]} WHERE userid='{command.username}'").ConfigureAwait(false);
-                command.funds = Convert.ToDecimal(triggerObject[0]["amount"]) / 100;
+                db.ExecuteNonQuery($"UPDATE user SET money=money+{triggerObject[0]["amount"]} WHERE userid='{command.username}'");
+                command.funds = decimal.Parse(triggerObject[0]["amount"]) / 100;
                 // Remove trigger
-                await db.ExecuteNonQueryAsync($"DELETE FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'").ConfigureAwait(false);
+                db.ExecuteNonQuery($"DELETE FROM triggers " +
+                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'");
 
                 result = "Trigger removed";
                 await LogTransactionEvent(command, "add").ConfigureAwait(false);

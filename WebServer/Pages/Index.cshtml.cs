@@ -288,9 +288,8 @@ namespace WebServer.Pages
         async Task<string> GetServiceResult(ServiceConstant sc, UserCommandType userCommand)
         {
             await _writer.WriteRecord(userCommand).ConfigureAwait(false);
-            return "";
-            //ServiceConnection conn = new ServiceConnection(sc);
-            //return await conn.Send(userCommand, true).ConfigureAwait(false);
+            ServiceConnection conn = new ServiceConnection(sc);
+            return await conn.Send(userCommand, true).ConfigureAwait(false);
         }
     }
 }

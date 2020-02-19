@@ -84,7 +84,7 @@ namespace WorkloadGenerator
             DateTime start = DateTime.Now;
             await Task.WhenAll(userCommands.Select(userCmds => Task.Run(async () =>
             {
-                //await ExecuteUserCommands(userCmds.Value);
+                await ExecuteUserCommands(userCmds.Value);
             })));
 
             Console.WriteLine($"Ran for {(DateTime.Now - start).TotalSeconds} seconds");
@@ -93,7 +93,8 @@ namespace WorkloadGenerator
 
         private async Task ExecuteUserCommands(Queue<string> commands)
         {
-            while (commands.Count > 0)
+            bool success = true;
+            while (commands.Count > 0 && success)
             {
                 // Run user commands as long as there is no errors
                 await PostToWebServer(commands.Dequeue());

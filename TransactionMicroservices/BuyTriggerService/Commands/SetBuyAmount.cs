@@ -1,6 +1,7 @@
 ﻿using Base;
 using Constants;
 using Database;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -22,14 +23,14 @@ namespace BuyTriggerService
             {
                 // Check user account for cash, notify if insufficient funds
                 MySQL db = new MySQL();
-                var userObject = await db.ExecuteAsync($"SELECT userid, money FROM user WHERE userid='{command.username}'").ConfigureAwait(false);
-
+                var hasUser = db.Execute($"SELECT userid, money FROM user WHERE userid='{command.username}'");
+                var userObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
                 if (userObject.Length <= 0)
                 {
                     return await LogErrorEvent(command, "User does not exist").ConfigureAwait(false);
                 }
 
-                decimal balance =Convert.ToDecimal(userObject[0]["money"]) / 100.0m; // normalize
+                decimal balance = decimal.Parse(userObject[0]["money"]) / 100.0m; // normalize
 
                 if (balance < command.funds)
                 {
@@ -37,8 +38,9 @@ namespace BuyTriggerService
                 }
 
                 // Check if there is already a trigger
-                var triggerObject = await db.ExecuteAsync($"SELECT amount FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'").ConfigureAwait(false);
+                var hasTrigger = db.Execute($"SELECT amount FROM triggers " +
+                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'");
+                var triggerObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrigger);
                 if (triggerObject.Length > 0)
                 {
                     return await LogErrorEvent(command, "Trigger already exists").ConfigureAwait(false);
@@ -46,11 +48,11 @@ namespace BuyTriggerService
 
                 // Set aside required cash
                 balance -= command.funds;
-                await db.ExecuteNonQueryAsync($"UPDATE user SET money={(long)(balance*100)} WHERE userid='{command.username}'").ConfigureAwait(false);
+                db.ExecuteNonQuery($"UPDATE user SET money={(long)(balance*100)} WHERE userid='{command.username}'");
 
                 // Update triggers with details
-                await db.ExecuteNonQueryAsync($"INSERT INTO triggers (userid,stock,amount,triggerType) " +
-                    $"VALUES ('{command.username}','{command.stockSymbol}',{(long)(command.funds*100)},'BUY')").ConfigureAwait(false);
+                db.ExecuteNonQuery($"INSERT INTO triggers (userid,stock,amount,triggerType) " +
+                    $"VALUES ('{command.username}','{command.stockSymbol}',{(long)(command.funds*100)},'BUY')");
 
                 result = "Trigger Created";
                 await LogTransactionEvent(command, "remove").ConfigureAwait(false);

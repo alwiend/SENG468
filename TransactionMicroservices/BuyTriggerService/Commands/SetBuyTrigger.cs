@@ -6,6 +6,7 @@ using Constants;
 using Base;
 using Utilities;
 using Database;
+using Newtonsoft.Json;
 using System.Threading.Tasks;
 
 namespace BuyTriggerService
@@ -24,8 +25,9 @@ namespace BuyTriggerService
                 // Check if trigger exists
                 MySQL db = new MySQL();
 
-                var triggerObject = await db.ExecuteAsync($"SELECT amount,triggerAmount FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'").ConfigureAwait(false);
+                var hasTrigger = db.Execute($"SELECT amount,triggerAmount FROM triggers " +
+                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'");
+                var triggerObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrigger);
                 if (triggerObject.Length == 0)
                 {
                     return await LogErrorEvent(command, "Trigger does not exist.").ConfigureAwait(false);
@@ -36,9 +38,10 @@ namespace BuyTriggerService
                     return await LogErrorEvent(command, "Trigger is already set.").ConfigureAwait(false);
                 }
 
-                await db.ExecuteNonQueryAsync($"UPDATE triggers " +
+                // Remove trigger
+                db.ExecuteNonQuery($"UPDATE triggers " +
                     $"SET triggerAmount={command.funds*100}" +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'").ConfigureAwait(false);
+                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'");
 
                 result = "Trigger amount set";
                 await LogTransactionEvent(command, "remove").ConfigureAwait(false);
