@@ -27,14 +27,13 @@ namespace BuyService
             try
             {
                 MySQL db = new MySQL();
-                var hasUser = db.Execute($"SELECT userid, money FROM user WHERE userid='{command.username}'");
-                var userObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasUser);
+                var userObject = await db.ExecuteAsync($"SELECT userid, money FROM user WHERE userid='{command.username}'").ConfigureAwait(false);
                 if (userObject.Length <= 0)
                 {
                     return await LogErrorEvent(command, "User does not exist or user balance error").ConfigureAwait(false);
                 }
-
-                balance = long.Parse(userObject[0]["money"]) / 100; // normalize
+                
+                balance = Convert.ToInt64(userObject[0]["money"]) / 100; // normalize
                 decimal numStock = Math.Floor(command.funds / decimal.Parse(stockCost)); // most whole number stock that can buy
 
                 if (balance < command.funds)
@@ -52,12 +51,13 @@ namespace BuyService
                 amount *= 100; // Get rid of decimal
 
                 // Store pending transaction
-                db.ExecuteNonQuery($"INSERT INTO transactions (userid, stock, price, transType, transTime) VALUES ('{command.username}','{command.stockSymbol}',{amount},'BUY','{Unix.TimeStamp.ToString()}')");
+                await db.ExecuteNonQueryAsync($"INSERT INTO transactions (userid, stock, price, transType, transTime) " +
+                    $"VALUES ('{command.username}','{command.stockSymbol}',{amount},'BUY','{Unix.TimeStamp.ToString()}')").ConfigureAwait(false);
 
                 result = $"{numStock} stock is available for purchase at {stockCost} per share totalling {String.Format("{0:0.00}", amount/100)}.";
 
                 // Update the amount in user account
-                db.ExecuteNonQuery($"UPDATE user SET money = {leftover} WHERE userid='{command.username}'");
+                await db.ExecuteNonQueryAsync($"UPDATE user SET money = {leftover} WHERE userid='{command.username}'").ConfigureAwait(false);
 
                 command.funds = (decimal)amount/100;
                 await LogTransactionEvent(command, "remove").ConfigureAwait(false);

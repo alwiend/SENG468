@@ -1,7 +1,6 @@
 ﻿using Base;
 using Constants;
 using Database;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -24,21 +23,20 @@ namespace SellTriggerService
                 // Check if trigger exists
                 MySQL db = new MySQL(); 
                 
-                var hasTrigger = db.Execute($"SELECT amount FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'");
-                var triggerObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrigger);
+                var triggerObject = await db.ExecuteAsync($"SELECT amount FROM triggers " +
+                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'").ConfigureAwait(false);
                 if (triggerObject.Length == 0)
                 {
                     return await LogErrorEvent(command, "Trigger does not exist").ConfigureAwait(false);
                 }
 
                 // Return stock to user account
-                db.ExecuteNonQuery($"UPDATE stocks SET price=price+{triggerObject[0]["amount"]}" +
-                    $" WHERE userid='{command.username}' AND stock='{command.stockSymbol}'");
-                command.funds = decimal.Parse(triggerObject[0]["amount"])/100;
+                await db.ExecuteNonQueryAsync($"UPDATE stocks SET price=price+{triggerObject[0]["amount"]}" +
+                    $" WHERE userid='{command.username}' AND stock='{command.stockSymbol}'").ConfigureAwait(false);
+                command.funds = Convert.ToDecimal(triggerObject[0]["amount"])/100m;
                 // Remove trigger
-                db.ExecuteNonQuery($"DELETE FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'");
+                await db.ExecuteNonQueryAsync($"DELETE FROM triggers " +
+                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'").ConfigureAwait(false);
 
                 result = "Trigger removed";
             }

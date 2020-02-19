@@ -6,7 +6,6 @@ using Constants;
 using Base;
 using Utilities;
 using Database;
-using Newtonsoft.Json;
 using System.Threading.Tasks;
 
 namespace SellTriggerService
@@ -25,9 +24,8 @@ namespace SellTriggerService
                 // Check if trigger exists
                 MySQL db = new MySQL();
 
-                var hasTrigger = db.Execute($"SELECT amount,triggerAmount FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'");
-                var triggerObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrigger);
+                var triggerObject = await db.ExecuteAsync($"SELECT amount,triggerAmount FROM triggers " +
+                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'").ConfigureAwait(false);
                 if (triggerObject.Length == 0)
                 {
                     return await LogErrorEvent(command, "Trigger does not exist").ConfigureAwait(false);
@@ -39,9 +37,9 @@ namespace SellTriggerService
                 }
 
                 
-                db.ExecuteNonQuery($"UPDATE triggers " +
+                await db.ExecuteNonQueryAsync($"UPDATE triggers " +
                     $"SET triggerAmount={command.funds*100}" +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'");
+                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'").ConfigureAwait(false);
 
                 result = "Trigger amount set";
                 decimal amount = Convert.ToDecimal(triggerObject[0]["amount"]) / 100m;
