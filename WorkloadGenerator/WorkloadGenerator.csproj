@@ -6,7 +6,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Update="workloads\1000User_testWorkLoad">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="workloads\1000User_testWorkLoad.gz">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="workloads\100User_testWorkLoad">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="workloads\100User_testWorkLoad.gz">

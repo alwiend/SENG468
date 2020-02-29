@@ -45,7 +45,7 @@ namespace Base
             };
             if (command.fundsSpecified)
                 sysEvent.funds = command.funds;
-            Auditor.WriteRecord(sysEvent).ConfigureAwait(false);
+            await Auditor.WriteRecord(sysEvent).ConfigureAwait(false);
         }
 
         protected async Task LogTransactionEvent(UserCommandType command, string action)
@@ -59,7 +59,7 @@ namespace Base
                 username = command.username,
                 funds = command.funds
             };
-            Auditor.WriteRecord(transaction).ConfigureAwait(false);
+            await Auditor.WriteRecord(transaction).ConfigureAwait(false);
         }
 
         protected async Task<string> LogQuoteServerEvent(UserCommandType command, string quote)
@@ -77,7 +77,7 @@ namespace Base
                 quoteServerTime = args[3],
                 cryptokey = args[4]
             };
-            Auditor.WriteRecord(stockQuote).ConfigureAwait(false);
+            await Auditor.WriteRecord(stockQuote).ConfigureAwait(false);
             return stockQuote.price.ToString();
         }
 
@@ -94,7 +94,7 @@ namespace Base
                 funds = command.funds,
                 errorMessage = err
             };
-            Auditor.WriteRecord(error).ConfigureAwait(false);
+            await Auditor.WriteRecord(error).ConfigureAwait(false);
             return error.errorMessage;
         }
 
@@ -108,40 +108,37 @@ namespace Base
                 command = command.command,
                 debugMessage = err
             };
-            Auditor.WriteRecord(bug).ConfigureAwait(false);
+            await Auditor.WriteRecord(bug).ConfigureAwait(false);
         }
 
         protected virtual Task<string> DataReceived(UserCommandType userCommand) { return null; }
 
         private async Task ProcessClient(TcpClient client)
         {
-            await Task.Run(async () =>
+            try
             {
-                try
-                {
-                    XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
+                XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
 
-                    using StreamReader client_in = new StreamReader(client.GetStream());
-                    UserCommandType command = (UserCommandType)serializer.Deserialize(client_in);
-                    await LogServerEvent(command).ConfigureAwait(false);
+                using StreamReader client_in = new StreamReader(client.GetStream());
+                UserCommandType command = (UserCommandType)serializer.Deserialize(client_in);
+                await LogServerEvent(command).ConfigureAwait(false);
 
-                    string retData = await DataReceived(command).ConfigureAwait(false);
+                string retData = await DataReceived(command).ConfigureAwait(false);
 
-                    using StreamWriter client_out = new StreamWriter(client.GetStream());
-                    await client_out.WriteAsync(retData).ConfigureAwait(false);
-                    await client_out.FlushAsync().ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-                finally
-                {
-                    client.Close();
-                }
-            }).ConfigureAwait(false);
+                using StreamWriter client_out = new StreamWriter(client.GetStream());
+                await client_out.WriteAsync(retData).ConfigureAwait(false);
+                await client_out.FlushAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                client.Close();
+            }
         }
-        
+
         public async Task StartService()
         {
             IPAddress ipAddr = IPAddress.Any;
@@ -152,7 +149,7 @@ namespace Base
             while (true)
             {
                 var client = await _listener.AcceptTcpClientAsync().ConfigureAwait(false);
-                ProcessClient(client);
+                _ = ProcessClient(client);
             }
         }
     }
