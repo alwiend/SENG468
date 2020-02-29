@@ -19,9 +19,9 @@ namespace AuditServer
 	{
 		private static List<object> Log { get; set; }
 		// Main Method 
-		static void Main(string[] args)
+		static async Task Main(string[] args)
 		{
-			ExecuteServer().Wait();
+			await ExecuteServer().ConfigureAwait(false);
 		}
 
 		private static async Task ProcessIncoming(TcpClient client)
@@ -31,7 +31,7 @@ namespace AuditServer
 			{
 				var stream = client.GetStream();
 				using StreamReader server_in = new StreamReader(client.GetStream());
-				var data = await server_in.ReadToEndAsync();
+				var data = await server_in.ReadToEndAsync().ConfigureAwait(false);
 
 				XmlSerializer serializer = new XmlSerializer(typeof(LogType));
 				using StringReader sr = new StringReader(data);
@@ -61,7 +61,6 @@ namespace AuditServer
 					}
 				}
 				client.Close();
-				client.Dispose();
 			}
 
 			catch (Exception e)
@@ -95,9 +94,17 @@ namespace AuditServer
 
 			while (true)
 			{
-				TcpClient client = await listener.AcceptTcpClientAsync();
-				await ProcessIncoming(client);
+				TcpClient client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
+				_ = ProcessIncoming(client);
 			}
+		}
+
+		static async Task ProcessString(TcpClient client)
+		{
+			var stream = client.GetStream();
+			using StreamReader server_in = new StreamReader(client.GetStream());
+			var data = await server_in.ReadToEndAsync().ConfigureAwait(false);
+			client.Close();
 		}
 	}
 }

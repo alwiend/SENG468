@@ -10,85 +10,147 @@ using System.IO;
 using System.Xml.Serialization;
 using System.Threading;
 using Constants;
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 namespace Base
 {
-	public delegate object DataReceivedEvent(UserCommandType command);
+    public abstract class BaseService
+    {
+        protected IAuditWriter Auditor { get; }
+        protected ServiceConstant ServiceDetails { get; }
 
-	public abstract class BaseService
-	{
-		protected IAuditWriter Auditor { get; }
-		protected DataReceivedEvent DataReceived;
-		protected ServiceConstant ServiceDetails { get; }
+        public BaseService(ServiceConstant sc, IAuditWriter aw)
+        {
+            ServiceDetails = sc;
+            Auditor = aw;
+        }
 
-		public BaseService(ServiceConstant sc, IAuditWriter aw)
-		{
-			ServiceDetails = sc;
-			Auditor = aw;
-		}
-
-		/*
+        /*
 		 * Logs interserver communication
 		 * @param command The user command that is driving the process
 		 */
-		void LogServerEvent(UserCommandType command)
-		{
-			SystemEventType sysEvent = new SystemEventType()
-			{
-				timestamp = Unix.TimeStamp.ToString(),
-				server = ServiceDetails.Abbr,
-				transactionNum = command.transactionNum,
-				username = command.username,
-				fundsSpecified = command.fundsSpecified,
-				command = command.command,
-				filename = command.filename,
-				stockSymbol = command.stockSymbol
-			};
-			if (command.fundsSpecified)
-				sysEvent.funds = command.funds;
-			Auditor.WriteRecord(sysEvent);
-		}
+        async Task LogServerEvent(UserCommandType command)
+        {
+            SystemEventType sysEvent = new SystemEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                username = command.username,
+                fundsSpecified = command.fundsSpecified,
+                command = command.command,
+                filename = command.filename,
+                stockSymbol = command.stockSymbol
+            };
+            if (command.fundsSpecified)
+                sysEvent.funds = command.funds;
+            await Auditor.WriteRecord(sysEvent).ConfigureAwait(false);
+        }
 
-		private void ProcessIncoming(TcpClient client)
-		{
-			try
-			{
-				XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
+        protected async Task LogTransactionEvent(UserCommandType command, string action)
+        {
+            AccountTransactionType transaction = new AccountTransactionType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                action = action,
+                username = command.username,
+                funds = command.funds
+            };
+            await Auditor.WriteRecord(transaction).ConfigureAwait(false);
+        }
 
-				using StreamReader client_in = new StreamReader(client.GetStream());
-				UserCommandType command = (UserCommandType)serializer.Deserialize(client_in);
-				LogServerEvent(command);
+        protected async Task<string> LogQuoteServerEvent(UserCommandType command, string quote)
+        {
+            //Cost,StockSymbol,UserId,Timestamp,CryptoKey
+            string[] args = quote.Split(",");
+            QuoteServerType stockQuote = new QuoteServerType()
+            {
+                username = args[2],
+                server = Server.QUOTE_SERVER.Abbr,
+                price = decimal.Parse(args[0]),
+                transactionNum = command.transactionNum,
+                stockSymbol = args[1],
+                timestamp = Unix.TimeStamp.ToString(),
+                quoteServerTime = args[3],
+                cryptokey = args[4]
+            };
+            await Auditor.WriteRecord(stockQuote).ConfigureAwait(false);
+            return stockQuote.price.ToString();
+        }
 
-				object retData = DataReceived(command).ToString();
+        protected async Task<string> LogErrorEvent(UserCommandType command, string err)
+        {
+            ErrorEventType error = new ErrorEventType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                username = command.username,
+                stockSymbol = command.stockSymbol,
+                funds = command.funds,
+                errorMessage = err
+            };
+            await Auditor.WriteRecord(error).ConfigureAwait(false);
+            return error.errorMessage;
+        }
 
-				using StreamWriter client_out = new StreamWriter(client.GetStream());
-				client_out.Write(retData);
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine(ex.Message);
-			}
-			finally
-			{
-				client.Close();
-			}
-		}
+        protected async Task LogDebugEvent(UserCommandType command, string err)
+        {
+            DebugType bug = new DebugType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = ServiceDetails.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                debugMessage = err
+            };
+            await Auditor.WriteRecord(bug).ConfigureAwait(false);
+        }
 
-		public void StartService()
-		{
-			IPAddress ipAddr = IPAddress.Any;
-			IPEndPoint _localEndPoint = new IPEndPoint(ipAddr, ServiceDetails.Port);
+        protected virtual Task<string> DataReceived(UserCommandType userCommand) { return null; }
 
-			TcpListener _listener = new TcpListener(_localEndPoint);
-			_listener.Start(100);
-			while (true)
-			{
-				Console.WriteLine($"Waiting connection on {_localEndPoint.Address}:{_localEndPoint.Port} ");
+        private async Task ProcessClient(TcpClient client)
+        {
+            try
+            {
+                XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
 
-				TcpClient client = _listener.AcceptTcpClient();
-				Thread thr = new Thread(new ThreadStart(() => ProcessIncoming(client)));
-				thr.Start();
-			}
-		}
-	}
+                using StreamReader client_in = new StreamReader(client.GetStream());
+                UserCommandType command = (UserCommandType)serializer.Deserialize(client_in);
+                await LogServerEvent(command).ConfigureAwait(false);
+
+                string retData = await DataReceived(command).ConfigureAwait(false);
+
+                using StreamWriter client_out = new StreamWriter(client.GetStream());
+                await client_out.WriteAsync(retData).ConfigureAwait(false);
+                await client_out.FlushAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                client.Close();
+            }
+        }
+
+        public async Task StartService()
+        {
+            IPAddress ipAddr = IPAddress.Any;
+            IPEndPoint _localEndPoint = new IPEndPoint(ipAddr, ServiceDetails.Port);
+
+            TcpListener _listener = new TcpListener(_localEndPoint);
+            _listener.Start();
+            while (true)
+            {
+                var client = await _listener.AcceptTcpClientAsync().ConfigureAwait(false);
+                _ = ProcessClient(client);
+            }
+        }
+    }
 }
