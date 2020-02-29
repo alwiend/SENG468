@@ -6,6 +6,7 @@ using Database;
 using Newtonsoft.Json;
 using Constants;
 using Utilities;
+using System.Threading.Tasks;
 
 namespace BuyService
 {
@@ -13,69 +14,9 @@ namespace BuyService
     {
         public BuyCommitCommand(ServiceConstant sc, IAuditWriter aw) : base(sc, aw)
         {
-            DataReceived = CommitBuy;
         }
 
-        void LogTransactionEvent(UserCommandType command)
-        {
-            AccountTransactionType transaction = new AccountTransactionType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                action = "remove",
-                username = command.username,
-                funds = command.funds
-            };
-            Auditor.WriteRecord(transaction);
-        }
-
-        string LogUserErrorEvent(UserCommandType command)
-        {
-            ErrorEventType error = new ErrorEventType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                username = command.username,
-                errorMessage = "No recent transactions to buy."
-            };
-            Auditor.WriteRecord(error);
-            return error.errorMessage;
-        }
-
-        string LogDBErrorEvent(UserCommandType command)
-        {
-            ErrorEventType error = new ErrorEventType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                username = command.username,
-                stockSymbol = command.stockSymbol,
-                funds = command.funds,
-                errorMessage = "Error getting account details"
-            };
-            Auditor.WriteRecord(error);
-            return error.errorMessage;
-        }
-
-        void LogDebugEvent(UserCommandType command, Exception e)
-        {
-            DebugType bug = new DebugType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                debugMessage = e.ToString()
-            };
-            Auditor.WriteRecord(bug);
-        }
-
-        public string CommitBuy(UserCommandType command)
+        protected override async Task<string> DataReceived(UserCommandType command)
         {
             string result;
             string stock;
@@ -84,16 +25,17 @@ namespace BuyService
             try
             {
                 MySQL db = new MySQL();
-                var queryRes = db.Execute($"SELECT stock, price, transTime FROM transactions WHERE userid='{command.username}' AND transType='BUY'");
-                var transObj = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(queryRes);
+                var transObj = await db.ExecuteAsync($"SELECT stock, price, transTime FROM transactions " +
+                    $"WHERE userid='{command.username}' AND transType='BUY'").ConfigureAwait(false);
+                
                 double minTime = 60.1;
                 int minTimeIndex = -1;
                 command.funds = 0;
                 for (int i = 0; i < transObj.Length; i++)
                 {
-                    amount = double.Parse(transObj[i]["price"]) / 100;
-                    long tTime = long.Parse(transObj[i]["transTime"]);
-                    DateTimeOffset transTime = DateTimeOffset.FromUnixTimeSeconds(long.Parse(transObj[i]["transTime"])/1000);                    
+                    amount = Convert.ToDouble(transObj[i]["price"]) / 100;
+                    long tTime = Convert.ToInt64(transObj[i]["transTime"]);
+                    DateTimeOffset transTime = DateTimeOffset.FromUnixTimeSeconds(tTime/1000);                    
                     double diff = (currTime - transTime).TotalSeconds; // find correct diff
                     if (diff < minTime)
                     {
@@ -104,11 +46,11 @@ namespace BuyService
                     {
                         if (diff > 60) // Remove expired transaction and put money back into account
                         {
-                            var userQuery = db.Execute($"SELECT money FROM user WHERE userid='{command.username}'");
-                            var userObj = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(userQuery);
+                            var userObj = await db.ExecuteAsync($"SELECT money FROM user WHERE userid='{command.username}'").ConfigureAwait(false);
                             int newBalance = Convert.ToInt32(userObj[0]["money"]) + (int)(amount*100);
-                            db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND transTime='{tTime}' AND transType='BUY'");
-                            db.ExecuteNonQuery($"UPDATE user SET money={newBalance} WHERE userid='{command.username}'");
+                            await db.ExecuteNonQueryAsync($"DELETE FROM transactions WHERE userid='{command.username}' " +
+                                $"AND transTime='{tTime}' AND transType='BUY'").ConfigureAwait(false);
+                            await db.ExecuteNonQueryAsync($"UPDATE user SET money={newBalance} WHERE userid='{command.username}'").ConfigureAwait(false);
                             command.funds += (decimal)amount;
                         }
                     }
@@ -116,31 +58,30 @@ namespace BuyService
 
                 if (minTimeIndex >= 0)
                 {
-
-                    stock = transObj[minTimeIndex]["stock"];
-                    amount = int.Parse(transObj[minTimeIndex]["price"]);
-                    string tTime = transObj[minTimeIndex]["transTime"];
-                    var hasStock = db.Execute($"SELECT price FROM stocks WHERE userid='{command.username}' AND stock='{stock}'");
-                    var stockObj = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasStock);
+                    stock = transObj[minTimeIndex]["stock"].ToString();
+                    amount = Convert.ToInt32(transObj[minTimeIndex]["price"]);
+                    string tTime = transObj[minTimeIndex]["transTime"].ToString();
+                    var stockObj = await db.ExecuteAsync($"SELECT price FROM stocks WHERE userid='{command.username}' AND stock='{stock}'").ConfigureAwait(false);
                     string query = $"INSERT INTO stocks (userid, stock, price) VALUES ('{command.username}', '{stock}', {amount})";
                     if (stockObj.Length > 0)
                     {
-                        query = $"UPDATE stocks SET price={amount + int.Parse(stockObj[0]["price"])} WHERE userid='{command.username}' AND stock='{stock}'";
+                        query = $"UPDATE stocks SET price={amount + Convert.ToInt32(stockObj[0]["price"])} WHERE userid='{command.username}' AND stock='{stock}'";
                     } 
-                    db.ExecuteNonQuery(query);
-                    db.ExecuteNonQuery($"DELETE FROM transactions WHERE userid='{command.username}' AND stock='{stock}' AND price={amount} AND transType='BUY' AND transTime='{tTime}'");
+                    await db.ExecuteNonQueryAsync(query).ConfigureAwait(false);
+                    await db.ExecuteNonQueryAsync($"DELETE FROM transactions WHERE userid='{command.username}' " +
+                        $"AND stock='{stock}' AND price={amount} AND transType='BUY' AND transTime='{tTime}'").ConfigureAwait(false);
                     result = $"Successfully bought ${amount/100} worth of {stock}.";
                 } else
                 {
-                    result = LogUserErrorEvent(command);
+                    result = await LogErrorEvent(command, "No recent transactions to buy.").ConfigureAwait(false);
                 }
             }
             catch (Exception e)
             {
-                result = LogDBErrorEvent(command);
-                LogDebugEvent(command, e);
+                result = await LogErrorEvent(command, "Error getting account details").ConfigureAwait(false);
+                await LogDebugEvent(command, e.Message).ConfigureAwait(false);
             }
-            LogTransactionEvent(command);
+            await LogTransactionEvent(command, "remove").ConfigureAwait(false);
             return result;
         } 
     }

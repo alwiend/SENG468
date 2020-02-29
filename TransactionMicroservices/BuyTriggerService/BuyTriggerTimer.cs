@@ -1,8 +1,8 @@
 ﻿using Database;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using System.Timers;
 using Utilities;
 
@@ -16,8 +16,6 @@ namespace BuyTriggerService
         public decimal Amount { get; }
         public decimal Trigger { get; }
 
-        Timer _timer;
-
         public BuyTriggerTimer(string user, string ss, decimal amount, decimal trigger)
         {
             User = user;
@@ -25,51 +23,53 @@ namespace BuyTriggerService
             Type = "BUY";
             Amount = amount;
             Trigger = trigger;
-            _timer = new Timer() { Enabled = false };
-            _timer.Elapsed += Run;
         }
 
-        public void Start()
+        public async Task Start()
         {
-            Run(null, null);
+            await Run().ConfigureAwait(false);
         }
 
-        void Run(object source, ElapsedEventArgs eventArgs)
+        async Task Run()
         {
-            _timer.Enabled = false;
-            // Check if trigger still exists
-            if (!TriggerExists())
+            while (true)
             {
-                return;
-            }
 
-            ServiceConnection conn = new ServiceConnection(Constants.Server.QUOTE_SERVER);
-            string response = conn.Send($"{StockSymbol},{User}", true);
-            string[] args = response.Split(",");
+                // Check if trigger still exists
+                if (!await TriggerExists().ConfigureAwait(false))
+                {
+                    return;
+                }
 
-            decimal cost = Convert.ToDecimal(args[0]);
-            if(cost > Trigger)
-            {
-                // Run trigger again
-                _timer.Interval = 60000 - (Unix.TimeStamp - Convert.ToInt64(args[3]));
-                _timer.Enabled = true;
-                return;
+                ServiceConnection conn = new ServiceConnection(Constants.Server.QUOTE_SERVER);
+                string response = await conn.Send($"{StockSymbol},{User}", true).ConfigureAwait(false);
+                string[] args = response.Split(",");
+
+                decimal cost = Convert.ToDecimal(args[0]);
+                if (cost > Trigger)
+                {
+                    // Run trigger again
+                    int interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[3])));
+                    await Task.Delay(interval).ConfigureAwait(false);
+                } else
+                {
+                    await BuyStock(cost).ConfigureAwait(false);
+                    return;
+                }
             }
-            BuyStock(cost);
         }
 
-        bool TriggerExists()
+        async Task<bool> TriggerExists()
         {
             MySQL db = new MySQL();
             string query = $"SELECT 1 FROM triggers " +
                 $"WHERE userid='{User}' AND stock='{StockSymbol}' AND triggerType='BUY' " +
                 $"AND amount={(int)(Amount * 100)} AND triggerAmount={(int)(Trigger * 100)}";
-            var hasTrigger = db.Execute(query);
-            var triggerObject = JsonConvert.DeserializeObject<Dictionary<string, string>[]>(hasTrigger);
+            var triggerObject = await db.ExecuteAsync(query).ConfigureAwait(false);
             return triggerObject.Length == 1;
         }
 
-        void BuyStock(decimal cost)
+        async Task BuyStock(decimal cost)
         {
             decimal numStock = Math.Floor(Amount / cost); // most whole number stock that can buy
             decimal amount = numStock * cost; // total amount spent
@@ -77,14 +77,14 @@ namespace BuyTriggerService
 
             MySQL db = new MySQL();
             // Put leftover amount back in users account
-            db.ExecuteNonQuery($"UPDATE user SET money = money+{(int)(leftover*100)} WHERE userid='{User}'");
+            await db.ExecuteNonQueryAsync($"UPDATE user SET money = money+{(int)(leftover*100)} WHERE userid='{User}'").ConfigureAwait(false);
             string query = $"INSERT INTO stocks (userid, stock, price) " +
                 $"VALUES ('{User}', '{StockSymbol}', {(int)(amount * 100)}) " +
                 $"ON DUPLICATE KEY UPDATE price = price + {(int)(amount * 100)}";
-            db.ExecuteNonQuery(query);
+            await db.ExecuteNonQueryAsync(query).ConfigureAwait(false);
             query = $"DELETE FROM triggers " +
                 $"WHERE userid='{User}' AND stock='{StockSymbol}' AND triggerType='BUY'";
-            db.ExecuteNonQuery(query);
+            await db.ExecuteNonQueryAsync(query).ConfigureAwait(false);
         }
 
     }
