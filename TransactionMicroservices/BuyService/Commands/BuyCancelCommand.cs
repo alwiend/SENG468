@@ -15,65 +15,6 @@ namespace BuyService
         {
         }
 
-        async Task LogTransactionEvent(UserCommandType command)
-        {
-            AccountTransactionType transaction = new AccountTransactionType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                action = "add",
-                username = command.username,
-                funds = command.funds
-            };
-            await Auditor.WriteRecord(transaction).ConfigureAwait(false);
-        }
-
-        async Task<string> LogUserErrorEvent(UserCommandType command)
-        {
-            ErrorEventType error = new ErrorEventType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                username = command.username,
-                errorMessage = "No recent transactions to cancel."
-            };
-            await Auditor.WriteRecord(error).ConfigureAwait(false);
-            return error.errorMessage;
-        }
-
-        async Task<string> LogDBErrorEvent(UserCommandType command)
-        {
-            ErrorEventType error = new ErrorEventType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                username = command.username,
-                stockSymbol = command.stockSymbol,
-                funds = command.funds,
-                errorMessage = "Error getting account details"
-            };
-            await Auditor.WriteRecord(error).ConfigureAwait(false);
-            return error.errorMessage;
-        }
-
-        async Task LogDebugEvent(UserCommandType command, Exception e)
-        {
-            DebugType bug = new DebugType()
-            {
-                timestamp = Unix.TimeStamp.ToString(),
-                server = ServiceDetails.Abbr,
-                transactionNum = command.transactionNum,
-                command = command.command,
-                debugMessage = e.ToString()
-            };
-            await Auditor.WriteRecord(bug).ConfigureAwait(false);
-        }
-
         protected override async Task<string> DataReceived(UserCommandType command)
         {
             string result;
@@ -128,16 +69,16 @@ namespace BuyService
                     command.funds += (decimal)(amount / 100);
                 } else
                 {
-                    result = await LogUserErrorEvent(command).ConfigureAwait(false);
+                    result = await LogErrorEvent(command, "No recent transactions to cancel.").ConfigureAwait(false);
                 }
                
             }
             catch (Exception e)
             {
-                result = await LogDBErrorEvent(command).ConfigureAwait(false);
-                await LogDebugEvent(command, e).ConfigureAwait(false);
+                result = await LogErrorEvent(command, "Error getting account details").ConfigureAwait(false);
+                LogDebugEvent(command, e.Message).ConfigureAwait(false);
             }
-            await LogTransactionEvent(command).ConfigureAwait(false); // Logs all funds returned into the account
+            LogTransactionEvent(command, "add").ConfigureAwait(false); // Logs all funds returned into the account
             return result;
         }
     }

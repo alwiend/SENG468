@@ -11,9 +11,10 @@ namespace SellService
     {
         static async Task Main(string[] args)
         {
-            var sell_service = new SellCommand(Service.SELL_SERVICE, new AuditWriter());
-            var sell_commit_service = new SellCommitCommand(Service.SELL_COMMIT_SERVICE, new AuditWriter());
-            var sell_cancel_service = new SellCancelCommand(Service.SELL_CANCEL_SERVICE, new AuditWriter());
+            var _auditor = new AuditWriter();
+            var sell_service = new SellCommand(Service.SELL_SERVICE, _auditor);
+            var sell_commit_service = new SellCommitCommand(Service.SELL_COMMIT_SERVICE, _auditor);
+            var sell_cancel_service = new SellCancelCommand(Service.SELL_CANCEL_SERVICE, _auditor);
 
             List<Task> tasks = new List<Task>
             {
