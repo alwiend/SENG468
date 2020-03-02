@@ -1,15 +1,10 @@
 ﻿// Connects to Quote Server and returns quote
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
 using System.Threading.Tasks;
 using Base;
 using Constants;
 using Database;
-using Newtonsoft.Json;
+using MySql.Data.MySqlClient;
 using Utilities;
 
 namespace AddService
@@ -34,16 +29,8 @@ namespace AddService
             try
             {
                 MySQL db = new MySQL();
-                var userObject = await db.ExecuteAsync($"SELECT userid, money FROM user WHERE userid='{command.username}'").ConfigureAwait(false);
-                long funds = (long)(command.funds * 100);
-                string query = $"INSERT INTO user (userid, money) VALUES ('{command.username}',{funds})";
-                if (userObject.Length > 0)
-                {
-                    funds += long.Parse(userObject[0]["money"].ToString());
-                    query = $"UPDATE user SET money={funds} WHERE userid='{command.username}'";
-                }
 
-                await db.ExecuteNonQueryAsync(query).ConfigureAwait(false);
+                await db.PerformTransaction(AddMoney, command).ConfigureAwait(false);
                 result = $"Successfully added {command.funds} into {command.username}'s account";
 
                 await LogTransactionEvent(command, "add").ConfigureAwait(false);
@@ -54,6 +41,21 @@ namespace AddService
                 result = await LogErrorEvent(command, "Error occurred adding money.").ConfigureAwait(false);
             }
             return result;
+        }
+
+        private async Task AddMoney(MySqlConnection cnn, UserCommandType command)
+        {
+            var sql = "INSERT INTO user (userid, money) VALUES (@userid,@funds) " +
+                "ON DUPLICATE KEY UPDATE money = money + @funds;";
+            
+            using (MySqlCommand cmd = new MySqlCommand(sql, cnn))
+            {
+                cmd.Parameters.AddWithValue("@userid", command.username);
+                cmd.Parameters.AddWithValue("@funds", command.funds);
+                await cmd.PrepareAsync().ConfigureAwait(false);
+
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
         }
     }
 }

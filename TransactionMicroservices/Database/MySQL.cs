@@ -10,7 +10,28 @@ namespace Database
 {
     public class MySQL
     {
-        private static string ConnectionString = "server=databaseserver_db_1;port=3306;database=db;uid=user;pwd=password;";
+        private static string ConnectionString = "server=databaseserver_db_1;port=3306;database=db;user=user;password=password;";
+
+
+        public async Task PerformTransaction(Func<MySqlConnection, UserCommandType, Task> transaction, UserCommandType o)
+        {
+            using (MySqlConnection cnn = new MySqlConnection(ConnectionString))
+            {
+                await cnn.OpenAsync().ConfigureAwait(false);
+                await transaction(cnn, o).ConfigureAwait(false);
+            }
+        }
+
+        public async Task<string> PerformTransaction(Func<MySqlConnection, UserCommandType, Task<string>> transaction, UserCommandType o)
+        {
+            string result = "";
+            using (MySqlConnection cnn = new MySqlConnection(ConnectionString))
+            {
+                await cnn.OpenAsync().ConfigureAwait(false);
+                result = await transaction(cnn, o).ConfigureAwait(false);
+            }
+            return result;
+        }
 
         public async Task<Dictionary<string,object>[]> ExecuteAsync(string command)
         {

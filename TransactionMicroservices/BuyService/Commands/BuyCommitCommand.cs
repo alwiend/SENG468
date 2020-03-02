@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using Constants;
 using Utilities;
 using System.Threading.Tasks;
+using MySql.Data.MySqlClient;
 
 namespace BuyService
 {
@@ -18,6 +19,9 @@ namespace BuyService
 
         protected override async Task<string> DataReceived(UserCommandType command)
         {
+            // CONVERT Transation time to big int in schema
+            // Convert this to stored procedure
+
             string result;
             string stock;
             double amount;
@@ -25,6 +29,8 @@ namespace BuyService
             try
             {
                 MySQL db = new MySQL();
+                result = await db.PerformTransaction(BuyCommit, command).ConfigureAwait(false);
+
                 var transObj = await db.ExecuteAsync($"SELECT stock, price, transTime FROM transactions " +
                     $"WHERE userid='{command.username}' AND transType='BUY'").ConfigureAwait(false);
                 
@@ -83,6 +89,12 @@ namespace BuyService
             }
             await LogTransactionEvent(command, "remove").ConfigureAwait(false);
             return result;
-        } 
+        }
+
+
+        async Task<string> BuyCommit(MySqlConnection cnn, UserCommandType command)
+        {
+            return "";
+        }
     }
 }
