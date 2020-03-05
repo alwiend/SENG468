@@ -31,7 +31,7 @@ namespace SellTriggerService
                     return await LogErrorEvent(command, "Trigger does not exist").ConfigureAwait(false);
                 }
 
-                if (Convert.ToInt32(triggerObject[0]["triggerAmount"])/100m == command.funds)
+                if (triggerObject[0]["triggerAmount"] != DBNull.Value && Convert.ToInt32(triggerObject[0]["triggerAmount"])/100m == command.funds)
                 {
                     return await LogErrorEvent(command, "Insufficient funds").ConfigureAwait(false);
                 }

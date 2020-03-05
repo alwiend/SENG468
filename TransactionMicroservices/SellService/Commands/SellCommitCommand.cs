@@ -44,7 +44,7 @@ namespace SellService
                         if (timeDiff > 60)
                         {
                             await db.ExecuteNonQueryAsync($"DELETE FROM transactions WHERE userid='{command.username}' AND transTime='{tTime}' AND transType='SELL'").ConfigureAwait(false);
-                            await db.ExecuteNonQueryAsync($"UPDATE stocks SET money=money+{amount} WHERE userid='{command.username}' AND stock='{transObj[i]["stock"]}'").ConfigureAwait(false);
+                            await db.ExecuteNonQueryAsync($"UPDATE stocks SET price=price+{amount} WHERE userid='{command.username}' AND stock='{transObj[i]["stock"]}'").ConfigureAwait(false);
                         }
                     }
                 }
@@ -58,7 +58,7 @@ namespace SellService
                     await db.ExecuteNonQueryAsync($"DELETE FROM transactions WHERE userid='{command.username}' AND stock='{stock}' AND price={amount} AND transType='SELL' AND transTime='{tTime}'").ConfigureAwait(false);
                     result = $"Successfully sold ${amount/100} worth of {stock}";
 
-                    await db.ExecuteNonQueryAsync($"UPDATE stock SET price=price-{amount} WHERE userid='{command.username}' AND stock='{stock}'").ConfigureAwait(false);
+                    await db.ExecuteNonQueryAsync($"UPDATE stocks SET price=price-{amount} WHERE userid='{command.username}' AND stock='{stock}'").ConfigureAwait(false);
                     command.funds = (decimal)(amount / 100);
                 } else
                 {

@@ -18,7 +18,7 @@ namespace QuoteService
         public static async Task Main(string[] args)
         {
             var quote_service = new QuoteService(Service.QUOTE_SERVICE, new AuditWriter());
-            await quote_service.StartService().ConfigureAwait(false);
+            await quote_service.StartService();
         }
 
         public QuoteService(ServiceConstant sc, IAuditWriter aw): base(sc, aw)

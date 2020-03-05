@@ -115,33 +115,30 @@ namespace Base
 
         private async Task ProcessClient(TcpClient client)
         {
-            await Task.Run(async () =>
+            try
             {
-                try
-                {
-                    XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
+                XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
 
-                    using StreamReader client_in = new StreamReader(client.GetStream());
-                    UserCommandType command = (UserCommandType)serializer.Deserialize(client_in);
-                    await LogServerEvent(command).ConfigureAwait(false);
+                using StreamReader client_in = new StreamReader(client.GetStream());
+                UserCommandType command = (UserCommandType)serializer.Deserialize(client_in);
+                await LogServerEvent(command).ConfigureAwait(false);
 
-                    string retData = await DataReceived(command).ConfigureAwait(false);
+                string retData = await DataReceived(command).ConfigureAwait(false);
 
-                    using StreamWriter client_out = new StreamWriter(client.GetStream());
-                    await client_out.WriteAsync(retData).ConfigureAwait(false);
-                    await client_out.FlushAsync().ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-                finally
-                {
-                    client.Close();
-                }
-            }).ConfigureAwait(false);
+                using StreamWriter client_out = new StreamWriter(client.GetStream());
+                await client_out.WriteAsync(retData).ConfigureAwait(false);
+                await client_out.FlushAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                client.Close();
+            }
         }
-        
+
         public async Task StartService()
         {
             IPAddress ipAddr = IPAddress.Any;
@@ -152,7 +149,7 @@ namespace Base
             while (true)
             {
                 var client = await _listener.AcceptTcpClientAsync().ConfigureAwait(false);
-                ProcessClient(client);
+                _ = ProcessClient(client);
             }
         }
     }

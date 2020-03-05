@@ -279,6 +279,7 @@ namespace WebServer.Pages
                     Result = "Invalid Command";
                     break;
             }
+
             return Page();
         }
 
@@ -287,10 +288,10 @@ namespace WebServer.Pages
          */
         async Task<string> GetServiceResult(ServiceConstant sc, UserCommandType userCommand)
         {
-            await _writer.WriteRecord(userCommand).ConfigureAwait(false);
-            return "";
-            //ServiceConnection conn = new ServiceConnection(sc);
-            //return await conn.Send(userCommand, true).ConfigureAwait(false);
+            _writer.WriteRecord(userCommand).ConfigureAwait(false);
+            //ServiceConnection conn = new ServiceConnection(IPAddress.Loopback, sc.Port);
+            ServiceConnection conn = new ServiceConnection(sc);
+            return await conn.Send(userCommand, true).ConfigureAwait(false);
         }
     }
 }

@@ -29,17 +29,14 @@ namespace Utilities
                         Items = new object[] { record }
                     };
 
-                    await Task.Run(async () =>
+                    XmlSerializer serializer = new XmlSerializer(typeof(LogType));
+                    using (StreamWriter client_out = new StreamWriter(client.GetStream()))
                     {
-                        XmlSerializer serializer = new XmlSerializer(typeof(LogType));
-                        using (StreamWriter client_out = new StreamWriter(client.GetStream()))
-                        {
-                            serializer.Serialize(client_out, log);
-                            await client_out.FlushAsync().ConfigureAwait(false);
-                            // Shutdown Clientside sending to signal end of stream
-                            client.Client.Shutdown(SocketShutdown.Both);
-                        }
-                    }).ConfigureAwait(false);
+                        serializer.Serialize(client_out, log);
+                        await client_out.FlushAsync().ConfigureAwait(false);
+                        // Shutdown Clientside sending to signal end of stream
+                        client.Client.Shutdown(SocketShutdown.Both);
+                    }
                 }
 
                 // Manage of Socket's Exceptions 
