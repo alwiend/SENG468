@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Utilities;
+using MySql.Data.MySqlClient;
+using System.Data;
 
 namespace BuyTriggerService
 {
@@ -21,24 +23,8 @@ namespace BuyTriggerService
             try
             {
                 // Check if trigger exists
-                MySQL db = new MySQL(); 
-                
-                var triggerObject = await db.ExecuteAsync($"SELECT amount FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'").ConfigureAwait(false);
-                if (triggerObject.Length <= 0)
-                {
-                    return await LogErrorEvent(command, "Trigger does not exist").ConfigureAwait(false);
-                }
-
-                // Update user account
-                await db.ExecuteNonQueryAsync($"UPDATE user SET money=money+{triggerObject[0]["amount"]} WHERE userid='{command.username}'").ConfigureAwait(false);
-                command.funds = Convert.ToDecimal(triggerObject[0]["amount"]) / 100;
-                // Remove trigger
-                await db.ExecuteNonQueryAsync($"DELETE FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'").ConfigureAwait(false);
-
-                result = "Trigger removed";
-                await LogTransactionEvent(command, "add").ConfigureAwait(false);
+                MySQL db = new MySQL();
+                result = await db.PerformTransaction(CancelBuy, command).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -46,6 +32,37 @@ namespace BuyTriggerService
                 return await LogErrorEvent(command, "Error processing command").ConfigureAwait(false);
             }
             return result;
+        }
+
+        async Task<string> CancelBuy(MySqlConnection cnn, UserCommandType command)
+        {
+            using (MySqlCommand cmd = new MySqlCommand())
+            {
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "cancel_set_buy";
+
+                cmd.Parameters.AddWithValue("@pUserId", command.username);
+                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
+                cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(new MySqlParameter("@StockAmount", MySqlDbType.Int32));
+                cmd.Parameters["@StockAmount"].Direction = ParameterDirection.Output;
+                cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
+                cmd.Parameters["@success"].Direction = ParameterDirection.Output;
+                cmd.Parameters.Add(new MySqlParameter("@message", MySqlDbType.Text));
+                cmd.Parameters["@message"].Direction = ParameterDirection.Output;
+
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
+                {
+                    return Convert.ToString(cmd.Parameters["@message"].Value);
+                }
+                command.funds = Convert.ToDecimal(cmd.Parameters["@StockAmount"].Value) / 100m;
+                await LogTransactionEvent(command, "add").ConfigureAwait(false);
+                return $"Successfully removed trigger to buy stock {command.stockSymbol}";
+            }
         }
     }
 }
