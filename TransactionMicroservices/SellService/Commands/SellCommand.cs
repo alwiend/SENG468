@@ -9,6 +9,8 @@ using Database;
 using Utilities;
 using Constants;
 using System.Threading.Tasks;
+using MySql.Data.MySqlClient;
+using System.Data;
 
 namespace SellService
 {
@@ -22,36 +24,10 @@ namespace SellService
         protected override async Task<string> DataReceived(UserCommandType command)
         {
             string result;
-            string stockCost = await GetStock(command).ConfigureAwait(false);
-            double stockBalance;
             try
             {
                 MySQL db = new MySQL();
-                var userObj = await db.ExecuteAsync($"SELECT price FROM stocks WHERE userid='{command.username}' AND stock='{command.stockSymbol}'").ConfigureAwait(false);
-                if (userObj.Length > 0)
-                {
-                    stockBalance = Convert.ToDouble(userObj[0]["price"]) / 100;
-                    if (stockBalance < (double)command.funds)
-                    {
-                        return await LogErrorEvent(command, "Insufficient stocks").ConfigureAwait(false);
-                    }
-                    decimal numStock = Math.Floor(command.funds / decimal.Parse(stockCost));
-                    double amount = Math.Round((double)numStock * double.Parse(stockCost), 2);
-                    double leftoverStock = stockBalance - amount;
-                    if (numStock < 1)
-                    {
-                        return await LogErrorEvent(command, "Insufficient stocks").ConfigureAwait(false);
-                    }
-                    await db.ExecuteNonQueryAsync($"INSERT INTO transactions (userid, stock, price, transType, transTime) " +
-                        $"VALUES ('{command.username}','{command.stockSymbol}',{amount*100},'SELL','{Unix.TimeStamp}')").ConfigureAwait(false);
-                    result = $"${amount} of stock {command.stockSymbol} is available to sell at ${stockCost} per share";
-                    await db.ExecuteNonQueryAsync($"UPDATE stocks SET price={leftoverStock*100} " +
-                        $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}'").ConfigureAwait(false);
-                    command.funds = (decimal)amount;
-                } else
-                {
-                    result = await LogErrorEvent(command, "User does not exist");
-                }
+                result = await db.PerformTransaction(SellStock, command).ConfigureAwait(false);
             }
             catch (Exception e)
             {
@@ -66,6 +42,48 @@ namespace SellService
             ServiceConnection conn = new ServiceConnection(Server.QUOTE_SERVER);
             string quote = await conn.Send($"{command.stockSymbol},{command.username}", true).ConfigureAwait(false);
             return await LogQuoteServerEvent(command, quote).ConfigureAwait(false);
+        }
+
+        async Task<string> SellStock(MySqlConnection cnn, UserCommandType command)
+        {
+            string stockCost = await GetStock(command).ConfigureAwait(false);
+            decimal cost = Convert.ToDecimal(stockCost);
+
+            int numStock = (int)Math.Floor(command.funds / cost);
+            if (numStock == 0)
+            {
+                return $"Stock not able to sell for ${command.funds}";
+            }
+
+            command.funds = cost * numStock;
+
+            using (MySqlCommand cmd = new MySqlCommand())
+            {
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "sell_stock";
+
+                cmd.Parameters.AddWithValue("@pUserId", command.username);
+                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
+                cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStockAmount", (int)(command.funds * 100));
+                cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pServerTime", Unix.TimeStamp.ToString());
+                cmd.Parameters["@pServerTime"].Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
+                cmd.Parameters["@success"].Direction = ParameterDirection.Output;
+                cmd.Parameters.Add(new MySqlParameter("@message", MySqlDbType.Text));
+                cmd.Parameters["@message"].Direction = ParameterDirection.Output;
+
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
+                {
+                    return Convert.ToString(cmd.Parameters["@message"].Value);
+                }
+                return $"{numStock} stock is available for sale at {stockCost} per share totalling {String.Format("{0:0.00}", command.funds)}";
+            }
         }
     }
 }

@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Utilities;
+using MySql.Data.MySqlClient;
+using System.Data;
 
 namespace BuyTriggerService
 {
@@ -22,38 +24,7 @@ namespace BuyTriggerService
             {
                 // Check user account for cash, notify if insufficient funds
                 MySQL db = new MySQL();
-                var userObject = await db.ExecuteAsync($"SELECT userid, money FROM user WHERE userid='{command.username}'").ConfigureAwait(false);
-
-                if (userObject.Length <= 0)
-                {
-                    return await LogErrorEvent(command, "User does not exist").ConfigureAwait(false);
-                }
-
-                decimal balance =Convert.ToDecimal(userObject[0]["money"]) / 100.0m; // normalize
-
-                if (balance < command.funds)
-                {
-                    return await LogErrorEvent(command, "Insufficeint funds");
-                }
-
-                // Check if there is already a trigger
-                var triggerObject = await db.ExecuteAsync($"SELECT amount FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='BUY'").ConfigureAwait(false);
-                if (triggerObject.Length > 0)
-                {
-                    return await LogErrorEvent(command, "Trigger already exists").ConfigureAwait(false);
-                }
-
-                // Set aside required cash
-                balance -= command.funds;
-                await db.ExecuteNonQueryAsync($"UPDATE user SET money={(long)(balance*100)} WHERE userid='{command.username}'").ConfigureAwait(false);
-
-                // Update triggers with details
-                await db.ExecuteNonQueryAsync($"INSERT INTO triggers (userid,stock,amount,triggerType) " +
-                    $"VALUES ('{command.username}','{command.stockSymbol}',{(long)(command.funds*100)},'BUY')").ConfigureAwait(false);
-
-                result = "Trigger Created";
-                await LogTransactionEvent(command, "remove").ConfigureAwait(false);
+                result = await db.PerformTransaction(SetAmount, command).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -61,6 +32,36 @@ namespace BuyTriggerService
                 return await LogErrorEvent(command, "Error processing command").ConfigureAwait(false);
             }
             return result;
+        }
+
+        async Task<string> SetAmount(MySqlConnection cnn, UserCommandType command)
+        {
+            using (MySqlCommand cmd = new MySqlCommand())
+            {
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "set_buy_amount";
+
+                cmd.Parameters.AddWithValue("@pUserId", command.username);
+                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
+                cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pBuyAmount", (int)(command.funds * 100));
+                cmd.Parameters["@pBuyAmount"].Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
+                cmd.Parameters["@success"].Direction = ParameterDirection.Output;
+                cmd.Parameters.Add(new MySqlParameter("@message", MySqlDbType.Text));
+                cmd.Parameters["@message"].Direction = ParameterDirection.Output;
+
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
+                {
+                    return Convert.ToString(cmd.Parameters["@message"].Value);
+                }
+                await LogTransactionEvent(command, "remove").ConfigureAwait(false);
+                return $"Trigger created successfully for stock {command.stockSymbol}";
+            }
         }
     }
 }

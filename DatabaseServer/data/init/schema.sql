@@ -1,5 +1,7 @@
 use db;
 
+SET GLOBAL event_scheduler = ON;
+
 CREATE TABLE user
 (
 userid VARCHAR(25),
