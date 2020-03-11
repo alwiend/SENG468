@@ -17,6 +17,7 @@ namespace Utilities
          */
         public async Task WriteRecord(object record)
         {
+            Console.WriteLine("Write Record");
             try
             {
                 TcpClient client = new TcpClient(AddressFamily.InterNetwork);

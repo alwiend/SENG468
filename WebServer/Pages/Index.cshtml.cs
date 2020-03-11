@@ -56,7 +56,7 @@ namespace WebServer.Pages
                     username = "AsyncTest",
                     transactionNum = _globalTransaction.Count.ToString()
                 };
-                await _writer.WriteRecord(cmd);
+                _writer.WriteRecord(cmd);
                 return Page();
             }
 
@@ -289,9 +289,30 @@ namespace WebServer.Pages
         async Task<string> GetServiceResult(ServiceConstant sc, UserCommandType userCommand)
         {
             _writer.WriteRecord(userCommand).ConfigureAwait(false);
-            //ServiceConnection conn = new ServiceConnection(IPAddress.Loopback, sc.Port);
-            ServiceConnection conn = new ServiceConnection(sc);
-            return await conn.Send(userCommand, true).ConfigureAwait(false);
+
+            try
+            {
+                //ServiceConnection conn = new ServiceConnection(IPAddress.Loopback, sc.Port);
+                ServiceConnection conn = new ServiceConnection(sc);
+                return await conn.Send(userCommand, true).ConfigureAwait(false);
+            } catch(Exception ex)
+            {
+                await LogDebugEvent(userCommand, ex.Message);
+                return "Service not available";
+            }
+        }
+
+        async Task LogDebugEvent(UserCommandType command, string err)
+        {
+            DebugType bug = new DebugType()
+            {
+                timestamp = Unix.TimeStamp.ToString(),
+                server = Server.WEB_SERVER.Abbr,
+                transactionNum = command.transactionNum,
+                command = command.command,
+                debugMessage = err
+            };
+            _writer.WriteRecord(bug).ConfigureAwait(false);
         }
     }
 }

@@ -63,7 +63,7 @@ namespace BuyService
                 cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
                 cmd.Parameters.AddWithValue("@pStockAmount", (int)(command.funds*100));
                 cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Input;
-                cmd.Parameters.AddWithValue("@pServerTime", Unix.TimeStamp.ToString());
+                cmd.Parameters.AddWithValue("@pServerTime", Unix.TimeStamp);
                 cmd.Parameters["@pServerTime"].Direction = ParameterDirection.Input;
                 cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
                 cmd.Parameters["@success"].Direction = ParameterDirection.Output;
@@ -74,7 +74,7 @@ namespace BuyService
 
                 if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
                 {
-                    return Convert.ToString(cmd.Parameters["@message"].Value);
+                    return await LogErrorEvent(command, Convert.ToString(cmd.Parameters["@message"].Value)).ConfigureAwait(false);
                 }
                 await LogTransactionEvent(command, "remove").ConfigureAwait(false);
                 return $"{numStock} stock is available for purchase at {stockCost} per share totalling {String.Format("{0:0.00}", command.funds)}.";

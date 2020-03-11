@@ -22,7 +22,7 @@ userid VARCHAR(25),
 stock VARCHAR(3),
 price INTEGER,
 transType TEXT,
-transTime TEXT,
+transTime BIGINT,
 PRIMARY KEY (id)
 ) COMMENT='table for pending buy/sell transactions';
 
@@ -37,11 +37,12 @@ PRIMARY KEY(userid,stock,triggerType)
 ) COMMENT='table for buy/sell triggers';
 
 DELIMITER $$
+
 CREATE PROCEDURE buy_stock(
 IN pUserId VARCHAR(25),
 IN pStock VARCHAR(3),
 IN pStockAmount INTEGER,
-IN pServerTime TEXT,
+IN pServerTime BIGINT,
 OUT success BOOLEAN,
 OUT message TEXT)
 
@@ -72,6 +73,52 @@ BEGIN
 			SET message = "";
 		END;
 	END IF;
+END$$
+
+CREATE PROCEDURE buy_commit(
+IN pUserId VARCHAR(25),
+IN pServerTime BIGINT,
+OUT success BOOLEAN,
+OUT message TEXT,
+OUT stockBuy VARCHAR(3),
+OUT stockAmount INTEGER)
+
+BEGIN
+	DECLARE buyTime BIGINT;
+	DECLARE buyId INTEGER;
+
+	SELECT id, stock, price, transTime 
+	INTO buyId, stockBuy, stockAmount, buyTime
+	FROM transactions
+    WHERE userid = pUserId AND transType='BUY'
+	ORDER BY transTime DESC
+	LIMIT 1;
+	
+	IF buyId IS NULL THEN
+		SET message = "No recent buys";
+		SET success = false;
+		SET stockBuy = "";
+		SET stockAmount = 0;
+	ELSEIF pServerTime - buyTime > 60000 THEN
+		SET message = "No recent buys";
+		SET success = false;
+		SET stockBuy = "";
+		SET stockAmount = 0;
+		
+		DELETE FROM transactions
+		WHERE id = buyId;
+	ELSE
+		INSERT INTO stocks (userid, stock, price) 
+		VALUES (pUserId, stockBuy, stockAmount)
+		ON DUPLICATE KEY UPDATE price = price + stockAmount;
+		
+		DELETE FROM transactions
+		WHERE id = buyId;
+		
+		SET success = true;
+		SET message = "";
+	END IF;
+
 END$$
 
 DELIMITER ;
