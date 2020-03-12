@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Base;
 using Constants;
 using Utilities;
+using StackExchange.Redis;
 
 namespace QuoteService
 {
@@ -27,8 +28,37 @@ namespace QuoteService
 
         protected override async Task<string> DataReceived(UserCommandType command)
         {
+            ConnectionMultiplexer muxer;
+            try
+            {
+                // The address is the one for my docker toolbox (localhost)
+                muxer = await ConnectionMultiplexer.ConnectAsync("192.168.99.100:6379").ConfigureAwait(false);
+                //muxer = await ConnectionMultiplexer.ConnectAsync("localhost:6379").ConfigureAwait(false);
+                //muxer = await ConnectionMultiplexer.ConnectAsync("172.0.0.1:6379").ConfigureAwait(false);
+                IDatabase redisConn = muxer.GetDatabase(1);
+                string result = redisConn.StringGet(command.stockSymbol.ToUpper());
+                if (result == null)
+                {
+                    return await GetQuote(command, redisConn);
+                }
+                string[] args = result.Split(",");
+                if ((Unix.TimeStamp - Convert.ToInt64(args[3])) > 60000)
+                {
+                    return await GetQuote(command, redisConn);
+                }
+                return args[0];
+            }
+            catch (Exception ex)
+            {
+                return $"Error getting quote";
+            }
+        }
+
+        async Task<string> GetQuote(UserCommandType command, IDatabase redisConn)
+        {
             ServiceConnection conn = new ServiceConnection(Server.QUOTE_SERVER);
             var quote = await conn.Send($"{command.stockSymbol},{command.username}", true).ConfigureAwait(false);
+            redisConn.StringSet(command.stockSymbol.ToUpper(), quote);
             return await LogQuoteServerEvent(command, quote).ConfigureAwait(false);
         }
     }
