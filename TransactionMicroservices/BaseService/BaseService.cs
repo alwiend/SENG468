@@ -12,6 +12,7 @@ using System.Threading;
 using Constants;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using StackExchange.Redis;
 
 namespace Base
 {
@@ -19,6 +20,15 @@ namespace Base
     {
         protected IAuditWriter Auditor { get; }
         protected ServiceConstant ServiceDetails { get; }
+
+        protected ConnectionMultiplexer muxer { get; }
+
+        public BaseService(ServiceConstant sc, IAuditWriter aw, ConnectionMultiplexer cm)
+        {
+            ServiceDetails = sc;
+            Auditor = aw;
+            muxer = cm;
+        }
 
         public BaseService(ServiceConstant sc, IAuditWriter aw)
         {

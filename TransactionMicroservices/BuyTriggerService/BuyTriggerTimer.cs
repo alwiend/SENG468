@@ -41,15 +41,14 @@ namespace BuyTriggerService
                     return;
                 }
 
-                ServiceConnection conn = new ServiceConnection(Constants.Server.QUOTE_SERVER);
-                string response = await conn.Send($"{StockSymbol},{User}", true).ConfigureAwait(false);
+                string response = await GetStock(User, StockSymbol).ConfigureAwait(false);
                 string[] args = response.Split(",");
 
                 decimal cost = Convert.ToDecimal(args[0]);
                 if (cost > Trigger)
                 {
                     // Run trigger again
-                    int interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[3])));
+                    int interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[1])));
                     await Task.Delay(interval).ConfigureAwait(false);
                 } else
                 {
@@ -87,5 +86,17 @@ namespace BuyTriggerService
             await db.ExecuteNonQueryAsync(query).ConfigureAwait(false);
         }
 
+        async Task<string> GetStock(string username, string stockSymbol)
+        {
+            UserCommandType cmd = new UserCommandType
+            {
+                server = Constants.Server.WEB_SERVER.Abbr,
+                command = commandType.SET_BUY_TRIGGER,
+                stockSymbol = stockSymbol,
+                username = username
+            };
+            ServiceConnection conn = new ServiceConnection(Constants.Service.QUOTE_SERVICE);
+            return await conn.Send(cmd, true).ConfigureAwait(false);
+        }
     }
 }

@@ -18,35 +18,39 @@ namespace QuoteService
     {
         public static async Task Main(string[] args)
         {
-            var quote_service = new QuoteService(Service.QUOTE_SERVICE, new AuditWriter());
+            var quote_service = new QuoteService(Service.QUOTE_SERVICE, new AuditWriter(), ConnectionMultiplexer.Connect("hostname:6379"));
             await quote_service.StartService();
         }
 
-        public QuoteService(ServiceConstant sc, IAuditWriter aw): base(sc, aw)
+        public QuoteService(ServiceConstant sc, IAuditWriter aw, ConnectionMultiplexer cm): base(sc, aw, cm)
         {
         }
 
         protected override async Task<string> DataReceived(UserCommandType command)
         {
-            ConnectionMultiplexer muxer;
             try
             {
-                // The address is the one for my docker toolbox (localhost)
-                muxer = await ConnectionMultiplexer.ConnectAsync("192.168.99.100:6379").ConfigureAwait(false);
-                //muxer = await ConnectionMultiplexer.ConnectAsync("localhost:6379").ConfigureAwait(false);
-                //muxer = await ConnectionMultiplexer.ConnectAsync("172.0.0.1:6379").ConfigureAwait(false);
                 IDatabase redisConn = muxer.GetDatabase(1);
                 string result = redisConn.StringGet(command.stockSymbol.ToUpper());
-                if (result == null)
+                if (result != null)
                 {
-                    return await GetQuote(command, redisConn);
+                    string[] args = result.Split(",");
+                    if ((Unix.TimeStamp - Convert.ToInt64(args[3])) < 60000)
+                    {
+                        if (command.command == commandType.SET_BUY_TRIGGER || command.command == commandType.SET_SELL_TRIGGER)
+                        {
+                            return args[0] + "," + args[3];
+                        }
+                        return args[0];
+                    }                
                 }
-                string[] args = result.Split(",");
-                if ((Unix.TimeStamp - Convert.ToInt64(args[3])) > 60000)
+                string quote = await GetQuote(command, redisConn);
+                if (command.command == commandType.SET_BUY_TRIGGER || command.command == commandType.SET_SELL_TRIGGER)
                 {
-                    return await GetQuote(command, redisConn);
+                    string cost = await LogQuoteServerEvent(command, quote).ConfigureAwait(false);
+                    return cost + "," + quote.Split(",")[3];
                 }
-                return args[0];
+                return await LogQuoteServerEvent(command, quote).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -59,7 +63,7 @@ namespace QuoteService
             ServiceConnection conn = new ServiceConnection(Server.QUOTE_SERVER);
             var quote = await conn.Send($"{command.stockSymbol},{command.username}", true).ConfigureAwait(false);
             redisConn.StringSet(command.stockSymbol.ToUpper(), quote);
-            return await LogQuoteServerEvent(command, quote).ConfigureAwait(false);
+            return quote;
         }
     }
 }
