@@ -1,5 +1,6 @@
 ﻿// Connects to Quote Server and returns quote
 using System;
+using System.Data;
 using System.Threading.Tasks;
 using Base;
 using Constants;
@@ -25,6 +26,11 @@ namespace AddService
         // ExecuteClient() Method 
         protected override async Task<string> DataReceived(UserCommandType command)
         {
+            if(!command.fundsSpecified || command.funds <= 0)
+            {
+                return "Invalid funds specified.";
+            }
+
             string result;
             try
             {
@@ -45,14 +51,16 @@ namespace AddService
 
         private async Task AddMoney(MySqlConnection cnn, UserCommandType command)
         {
-            var sql = "INSERT INTO user (userid, money) VALUES (@userid,@funds) " +
-                "ON DUPLICATE KEY UPDATE money = money + @funds;";
-            
-            using (MySqlCommand cmd = new MySqlCommand(sql, cnn))
+            using (MySqlCommand cmd = new MySqlCommand())
             {
-                cmd.Parameters.AddWithValue("@userid", command.username);
-                cmd.Parameters.AddWithValue("@funds", command.funds);
-                await cmd.PrepareAsync().ConfigureAwait(false);
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "add_user";
+
+                cmd.Parameters.AddWithValue("@pUserId", command.username);
+                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pFunds", command.funds*100);
+                cmd.Parameters["@pFunds"].Direction = ParameterDirection.Input;
 
                 await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
             }

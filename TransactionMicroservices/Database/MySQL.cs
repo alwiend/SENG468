@@ -11,8 +11,7 @@ namespace Database
     public class MySQL
     {
         private static string ConnectionString = "server=databaseserver_db_1;port=3306;database=db;user=user;password=password;";
-
-
+        
         public async Task PerformTransaction(Func<MySqlConnection, UserCommandType, Task> transaction, UserCommandType o)
         {
             using (MySqlConnection cnn = new MySqlConnection(ConnectionString))

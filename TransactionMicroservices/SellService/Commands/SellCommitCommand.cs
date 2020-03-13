@@ -41,16 +41,16 @@ namespace SellService
             {
                 cmd.Connection = cnn;
                 cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandText = "sell_commit_stock";
+                cmd.CommandText = "sell_commit";
 
                 cmd.Parameters.AddWithValue("@pUserId", command.username);
                 cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(new MySqlParameter("@pServerTime", MySqlDbType.Text));
+                cmd.Parameters["@pServerTime"].Direction = ParameterDirection.Input;
                 cmd.Parameters.Add(new MySqlParameter("@pStock", MySqlDbType.Text));
                 cmd.Parameters["@pStock"].Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(new MySqlParameter("@pStockAmount", MySqlDbType.Int32));
                 cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Output;
-                cmd.Parameters.Add(new MySqlParameter("@pServerTime", MySqlDbType.Text));
-                cmd.Parameters["@pServerTime"].Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
                 cmd.Parameters["@success"].Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(new MySqlParameter("@message", MySqlDbType.Text));

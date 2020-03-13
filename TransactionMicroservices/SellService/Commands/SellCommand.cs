@@ -23,11 +23,26 @@ namespace SellService
 
         protected override async Task<string> DataReceived(UserCommandType command)
         {
+            string stockCost = await GetStock(command).ConfigureAwait(false);
+            decimal cost = Convert.ToDecimal(stockCost);
+
+            int numStock = (int)Math.Floor(command.funds / cost);
+            if (numStock == 0)
+            {
+                return $"Stock not able to sell for ${command.funds}";
+            }
+
+            command.funds = cost * numStock;
+
             string result;
             try
             {
                 MySQL db = new MySQL();
                 result = await db.PerformTransaction(SellStock, command).ConfigureAwait(false);
+                if (result == null)
+                {
+                    result = $"{numStock} stock is available for sale at {stockCost} per share totalling {String.Format("{0:0.00}", command.funds)}";
+                }
             }
             catch (Exception e)
             {
@@ -46,17 +61,6 @@ namespace SellService
 
         async Task<string> SellStock(MySqlConnection cnn, UserCommandType command)
         {
-            string stockCost = await GetStock(command).ConfigureAwait(false);
-            decimal cost = Convert.ToDecimal(stockCost);
-
-            int numStock = (int)Math.Floor(command.funds / cost);
-            if (numStock == 0)
-            {
-                return $"Stock not able to sell for ${command.funds}";
-            }
-
-            command.funds = cost * numStock;
-
             using (MySqlCommand cmd = new MySqlCommand())
             {
                 cmd.Connection = cnn;
@@ -82,7 +86,7 @@ namespace SellService
                 {
                     return Convert.ToString(cmd.Parameters["@message"].Value);
                 }
-                return $"{numStock} stock is available for sale at {stockCost} per share totalling {String.Format("{0:0.00}", command.funds)}";
+                return null;
             }
         }
     }

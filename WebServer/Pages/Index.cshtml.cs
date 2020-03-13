@@ -269,7 +269,6 @@ namespace WebServer.Pages
                     {
                         userCommand.username = args[1];
                         Result = await GetServiceResult(Service.DISPLAY_SUMMARY_SERVICE, userCommand);
-                        
                     } else
                     {
                         Result = "Usage: DISPLAY_SUMMARY,userid";
