@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Timers;
 using Utilities;
+using MySql.Data.MySqlClient;
+using System.Data;
 
 namespace SellTriggerService
 {
@@ -15,6 +17,8 @@ namespace SellTriggerService
         public string Type { get; }
         public decimal Amount { get; }
         public decimal Trigger { get; }
+
+        private decimal _cost;
 
         public SellTriggerTimer(string user, string ss, decimal amount, decimal trigger)
         {
@@ -32,60 +36,97 @@ namespace SellTriggerService
 
         async Task Run()
         {
+            MySQL db = new MySQL();
             while (true)
             {
                 // Check if trigger still exists
-                if (!await TriggerExists().ConfigureAwait(false))
+                if (!await db.PerformTransaction(IfTriggerExists).ConfigureAwait(false))
                 {
                     return;
                 }
 
-                ServiceConnection conn = new ServiceConnection(Constants.Server.QUOTE_SERVER);
-                string response = await conn.Send($"{StockSymbol},{User}", true).ConfigureAwait(false);
+                string response = await GetStock(User, StockSymbol).ConfigureAwait(false);
                 string[] args = response.Split(",");
 
-                decimal cost = Convert.ToDecimal(args[0]);
-                if (cost < Trigger)
+                _cost = Convert.ToDecimal(args[0]);
+                if (_cost < Trigger)
                 {
                     // Run trigger again
 
-                    int interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[3])));
+                    int interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[1])));
                     await Task.Delay(interval).ConfigureAwait(false);
                 } else
                 {
-                    await SellStock(cost).ConfigureAwait(false);
+                    await db.PerformTransaction(SellStock).ConfigureAwait(false);
                     return;
                 }
             }
         }
 
-        async Task<bool> TriggerExists()
+        async Task<bool> IfTriggerExists(MySqlConnection cnn)
         {
-            MySQL db = new MySQL();
-            string query = $"SELECT 1 FROM triggers " +
-                $"WHERE userid='{User}' AND stock='{StockSymbol}' AND triggerType='SELL' " +
-                $"AND amount={(int)(Amount * 100)} AND triggerAmount={(int)(Trigger * 100)}";
-            var triggerObject = await db.ExecuteAsync(query).ConfigureAwait(false);
-            return triggerObject.Length == 1;
+            using (MySqlCommand cmd = new MySqlCommand())
+            {
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "check_trigger_exists";
+
+                cmd.Parameters.AddWithValue("@pUserId", User);
+                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStock", StockSymbol);
+                cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStockAmount", (int)(Amount * 100));
+                cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pTriggerAmount", (int)(Trigger * 100));
+                cmd.Parameters["@pTriggerAmount"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pTriggerType", Type);
+                cmd.Parameters["@pTriggerType"].Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
+                cmd.Parameters["@success"].Direction = ParameterDirection.Output;
+
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                return Convert.ToBoolean(cmd.Parameters["@success"].Value);
+            }
         }
 
-        async Task SellStock(decimal cost)
+        async Task<bool> SellStock(MySqlConnection cnn)
         {
-            decimal numStock = Math.Floor(Amount / cost); // most whole number stock that can buy
-            decimal amount = numStock * cost; // total amount spent
+            decimal numStock = Math.Floor(Amount / _cost); // most whole number stock that can buy
+            decimal amount = numStock * _cost; // total amount spent
             decimal leftover = Amount - amount;
 
-            MySQL db = new MySQL();
-            // Put leftover amount back in users account
-            // Should be a transaction
-            await db.ExecuteNonQueryAsync($"UPDATE user SET money=money+{(int)(amount * 100)} WHERE userid='{User}'").ConfigureAwait(false);
-            string query = $"INSERT INTO stocks (userid, stock, price) " +
-                $"VALUES ('{User}', '{StockSymbol}', {(int)(leftover * 100)}) " +
-                $"ON DUPLICATE KEY UPDATE price = price + {(int)(leftover * 100)}";
-            await db.ExecuteNonQueryAsync(query).ConfigureAwait(false);
-            query = $"DELETE FROM triggers " +
-                $"WHERE userid='{User}' AND stock='{StockSymbol}' AND triggerType='SELL'";
-            await db.ExecuteNonQueryAsync(query).ConfigureAwait(false);
+            using (MySqlCommand cmd = new MySqlCommand())
+            {
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "sell_trigger";
+
+                cmd.Parameters.AddWithValue("@pUserId", User);
+                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStock", StockSymbol);
+                cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStockAmount", (int)(amount * 100));
+                cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@StockLeftover", (int)(leftover * 100));
+                cmd.Parameters["@pStockLeftover"].Direction = ParameterDirection.Input;
+
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+            return true;
+        }
+
+        async Task<string> GetStock(string username, string stockSymbol)
+        {
+            UserCommandType cmd = new UserCommandType
+            {
+                server = Constants.Server.WEB_SERVER.Abbr,
+                command = commandType.SET_SELL_TRIGGER,
+                stockSymbol = stockSymbol,
+                username = username
+            };
+            ServiceConnection conn = new ServiceConnection(Constants.Service.QUOTE_SERVICE);
+            return await conn.Send(cmd, true).ConfigureAwait(false);
         }
     }
 }

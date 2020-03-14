@@ -1,0 +1,11 @@
+.gitignore
+.git
+.cache
+**/.vs
+**/bin
+**/obj
+WorkloadGenerator
+Images
+Swarm Files
+SENG468 Project Documentation.pdf
+

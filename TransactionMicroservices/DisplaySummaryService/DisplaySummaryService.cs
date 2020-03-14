@@ -6,6 +6,9 @@ using Newtonsoft.Json;
 using Utilities;
 using Database;
 using System.Threading.Tasks;
+using MySql.Data.MySqlClient;
+using System.Data;
+using System.Text;
 
 namespace DisplaySummaryService
 {
@@ -27,25 +30,7 @@ namespace DisplaySummaryService
             try
             {
                 MySQL db = new MySQL();
-                var userObj = await db.ExecuteAsync($"SELECT userid, money FROM user WHERE userid='{command.username}'").ConfigureAwait(false);
-                if (userObj.Length > 0)
-                {
-                    result = $"User {command.username} has ${Convert.ToDouble(userObj[0]["money"]) / 100} in your account.\n";
-                    command.funds = Convert.ToDecimal(userObj[0]["money"]) / 100;
-                    var stockObj = await db.ExecuteAsync($"SELECT stock, price FROM stocks WHERE userid='{command.username}'").ConfigureAwait(false);
-                    if (stockObj.Length > 0)
-                    {
-                        result += $"{command.username} owns the following stocks:\n";
-                        for (int i = 0; i < stockObj.Length; i++)
-                        {
-                            result += $"{stockObj[i]["stock"]}: {Convert.ToDecimal(stockObj[i]["price"]) / 100m}\n";
-                        }
-                    }
-                    
-                } else
-                {
-                    result = await LogErrorEvent(command, "User does not exist").ConfigureAwait(false);
-                }
+                result = await db.PerformTransaction(DisplaySummary, command).ConfigureAwait(false);
             }
             catch (Exception e)
             {
@@ -53,6 +38,45 @@ namespace DisplaySummaryService
                 await LogDebugEvent(command, e.Message).ConfigureAwait(false);
             }
             return result;
+        }
+
+
+        async Task<string> DisplaySummary(MySqlConnection cnn, UserCommandType command)
+        {
+            using (MySqlCommand cmd = new MySqlCommand())
+            {
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "display_summary";
+
+                cmd.Parameters.AddWithValue("@pUserId", command.username);
+                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(new MySqlParameter("@pMoney", MySqlDbType.Int32));
+                cmd.Parameters["@pMoney"].Direction = ParameterDirection.Output;
+
+                var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+                
+                StringBuilder stocks = new StringBuilder();
+                try
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        // Reads in stock and amount
+                        stocks.Append($"{reader.GetString(0)}&nbsp&nbsp&nbsp&nbsp{Convert.ToDecimal(reader.GetValue(1))/100m}<br>");
+                    }
+                }
+                finally
+                {
+                    await reader.CloseAsync();
+                }
+
+                var money = Convert.ToDecimal(cmd.Parameters["@pMoney"].Value);
+                if (money == -1)
+                {
+                    return "User does not exist";
+                }
+                return $"User {command.username} has ${money/100m}<br>Stock&nbsp&nbsp&nbsp&nbspAmount<br>" + stocks.ToString();
+            }
         }
     }
 }

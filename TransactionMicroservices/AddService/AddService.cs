@@ -1,15 +1,11 @@
 ﻿// Connects to Quote Server and returns quote
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
+using System.Data;
 using System.Threading.Tasks;
 using Base;
 using Constants;
 using Database;
-using Newtonsoft.Json;
+using MySql.Data.MySqlClient;
 using Utilities;
 
 namespace AddService
@@ -30,20 +26,17 @@ namespace AddService
         // ExecuteClient() Method 
         protected override async Task<string> DataReceived(UserCommandType command)
         {
+            if(!command.fundsSpecified || command.funds <= 0)
+            {
+                return "Invalid funds specified.";
+            }
+
             string result;
             try
             {
                 MySQL db = new MySQL();
-                var userObject = await db.ExecuteAsync($"SELECT userid, money FROM user WHERE userid='{command.username}'").ConfigureAwait(false);
-                long funds = (long)(command.funds * 100);
-                string query = $"INSERT INTO user (userid, money) VALUES ('{command.username}',{funds})";
-                if (userObject.Length > 0)
-                {
-                    funds += long.Parse(userObject[0]["money"].ToString());
-                    query = $"UPDATE user SET money={funds} WHERE userid='{command.username}'";
-                }
 
-                await db.ExecuteNonQueryAsync(query).ConfigureAwait(false);
+                await db.PerformTransaction(AddMoney, command).ConfigureAwait(false);
                 result = $"Successfully added {command.funds} into {command.username}'s account";
 
                 await LogTransactionEvent(command, "add").ConfigureAwait(false);
@@ -54,6 +47,23 @@ namespace AddService
                 result = await LogErrorEvent(command, "Error occurred adding money.").ConfigureAwait(false);
             }
             return result;
+        }
+
+        private async Task AddMoney(MySqlConnection cnn, UserCommandType command)
+        {
+            using (MySqlCommand cmd = new MySqlCommand())
+            {
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "add_user";
+
+                cmd.Parameters.AddWithValue("@pUserId", command.username);
+                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pFunds", command.funds*100);
+                cmd.Parameters["@pFunds"].Direction = ParameterDirection.Input;
+
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
         }
     }
 }

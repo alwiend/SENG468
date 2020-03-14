@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Utilities;
+using MySql.Data.MySqlClient;
+using System.Data;
 
 namespace SellTriggerService
 {
@@ -22,23 +24,7 @@ namespace SellTriggerService
             {
                 // Check if trigger exists
                 MySQL db = new MySQL(); 
-                
-                var triggerObject = await db.ExecuteAsync($"SELECT amount FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'").ConfigureAwait(false);
-                if (triggerObject.Length == 0)
-                {
-                    return await LogErrorEvent(command, "Trigger does not exist").ConfigureAwait(false);
-                }
-
-                // Return stock to user account
-                await db.ExecuteNonQueryAsync($"UPDATE stocks SET price=price+{triggerObject[0]["amount"]}" +
-                    $" WHERE userid='{command.username}' AND stock='{command.stockSymbol}'").ConfigureAwait(false);
-                command.funds = Convert.ToDecimal(triggerObject[0]["amount"])/100m;
-                // Remove trigger
-                await db.ExecuteNonQueryAsync($"DELETE FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'").ConfigureAwait(false);
-
-                result = "Trigger removed";
+                result = await db.PerformTransaction(SetCancel, command).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -46,6 +32,33 @@ namespace SellTriggerService
                 return await LogErrorEvent(command, "Error processing command").ConfigureAwait(false);
             }
             return result;
+        }
+
+        async Task<string> SetCancel(MySqlConnection cnn, UserCommandType command)
+        {
+            using (MySqlCommand cmd = new MySqlCommand())
+            {
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "cancel_set_sell";
+
+                cmd.Parameters.AddWithValue("@pUserId", command.username);
+                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
+                cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
+                cmd.Parameters["@success"].Direction = ParameterDirection.Output;
+                cmd.Parameters.Add(new MySqlParameter("@message", MySqlDbType.Text));
+                cmd.Parameters["@message"].Direction = ParameterDirection.Output;
+
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
+                {
+                    return Convert.ToString(cmd.Parameters["@message"].Value);
+                }
+                return $"Successfully removed trigger for stock {command.stockSymbol}";
+            }
         }
     }
 }

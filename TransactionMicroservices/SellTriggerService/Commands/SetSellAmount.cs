@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Utilities;
+using MySql.Data.MySqlClient;
+using System.Data;
 
 namespace SellTriggerService
 {
@@ -22,40 +24,7 @@ namespace SellTriggerService
             {
                 // Check user account for stock, notify if insufficient
                 MySQL db = new MySQL();
-                var userObject = await db.ExecuteAsync($"SELECT price FROM stocks" +
-                    $" WHERE userid='{command.username}' AND stock='{command.stockSymbol}'").ConfigureAwait(false);
-                if (userObject.Length == 0)
-                {
-                    return await LogErrorEvent(command, "User does not exist").ConfigureAwait(false);
-                }
-
-                int balance = Convert.ToInt32(userObject[0]["price"]);
-                // normalize
-                int quantity = (int)(command.funds * 100);
-
-                if (balance < quantity)
-                {
-                    return await LogErrorEvent(command, "Insufficient funds").ConfigureAwait(false);
-                }
-
-                // Check if there is already a trigger
-                var triggerObject = await db.ExecuteAsync($"SELECT amount FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'").ConfigureAwait(false);
-                if (triggerObject.Length > 0)
-                {
-                    return await LogErrorEvent(command, "Trigger already exists").ConfigureAwait(false);
-                }
-
-                // Set aside required stock
-                balance -= quantity;
-                await db.ExecuteNonQueryAsync($"UPDATE stocks SET price={balance}" +
-                    $" WHERE userid='{command.username}' AND stock='{command.stockSymbol}'").ConfigureAwait(false);
-
-                // Update triggers with details
-                await db.ExecuteNonQueryAsync($"INSERT INTO triggers (userid,stock,amount,triggerType) " +
-                    $"VALUES ('{command.username}','{command.stockSymbol}',{quantity},'SELL')").ConfigureAwait(false);
-
-                result = "Trigger Created";
+                result = await db.PerformTransaction(SetAmount, command).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -63,6 +32,35 @@ namespace SellTriggerService
                 return await LogErrorEvent(command, "Error processing command").ConfigureAwait(false);
             }
             return result;
+        }
+
+        async Task<string> SetAmount(MySqlConnection cnn, UserCommandType command)
+        {
+            using (MySqlCommand cmd = new MySqlCommand())
+            {
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "set_sell_amount";
+
+                cmd.Parameters.AddWithValue("@pUserId", command.username);
+                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
+                cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStockAmount", (int)(command.funds * 100));
+                cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
+                cmd.Parameters["@success"].Direction = ParameterDirection.Output;
+                cmd.Parameters.Add(new MySqlParameter("@message", MySqlDbType.Text));
+                cmd.Parameters["@message"].Direction = ParameterDirection.Output;
+
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
+                {
+                    return Convert.ToString(cmd.Parameters["@message"].Value);
+                }
+                return $"Trigger created successfully for stock {command.stockSymbol}";
+            }
         }
     }
 }

@@ -1,6 +1,25 @@
-﻿# Build runtime image
-FROM mcr.microsoft.com/dotnet/core/runtime:3.1.1-alpine3.10
+﻿FROM mcr.microsoft.com/dotnet/core/sdk:3.1-alpine3.10 AS build-env
 WORKDIR /app
 
-COPY ./bin/Release/netcoreapp3.1/publish .
+# Copy csproj and restore as distinct layers
+COPY TransactionMicroservices/BuyTriggerService/*.csproj ./TransactionMicroservices/BuyTriggerService/
+COPY TransactionMicroservices/BaseService/*.csproj ./TransactionMicroservices/BaseService/
+COPY TransactionMicroservices/Database/*.csproj ./TransactionMicroservices/Database/
+COPY Common/Utilities/*.csproj ./Common/Utilities/
+COPY Common/Constants/*.csproj ./Common/Constants/
+RUN dotnet restore ./TransactionMicroservices/BuyTriggerService
+
+# Copy everything else and build
+COPY TransactionMicroservices/BuyTriggerService/ ./TransactionMicroservices/BuyTriggerService/
+COPY TransactionMicroservices/BaseService/ ./TransactionMicroservices/BaseService/
+COPY TransactionMicroservices/Database/ ./TransactionMicroservices/Database/
+COPY Common/Utilities/ ./Common/Utilities/
+COPY Common/Constants/ ./Common/Constants/
+RUN dotnet publish -c Release -o out ./TransactionMicroservices/BuyTriggerService
+
+# Build runtime image
+FROM mcr.microsoft.com/dotnet/core/aspnet:3.1-alpine3.10
+WORKDIR /app
+COPY --from=build-env /app/out .
+
 ENTRYPOINT ["dotnet", "BuyTriggerService.dll"]

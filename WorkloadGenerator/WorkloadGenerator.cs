@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -50,15 +51,16 @@ namespace WorkloadGenerator
                     }
                 }
             }
-            Console.WriteLine("Parsing Complete");
+            Console.WriteLine($"Parsing Complete");
 
-            Console.WriteLine("Wait for User Tasks");
+            Console.WriteLine("Spawn User Tasks");
 
             DateTime start = DateTime.Now;
-            await Task.WhenAll(userCommands.Select(userCmds => Task.Run(async () =>
-            {
-                await ExecuteUserCommands(userCmds.Value);
-            })));
+            var tasks = userCommands.Select(userCmds => ExecuteUserCommands(userCmds.Value));
+
+            Console.WriteLine("Wait For User Tasks");
+
+            await Task.WhenAll(tasks);
 
             Console.WriteLine($"Ran for {(DateTime.Now - start).TotalSeconds} seconds");
             await PostToWebServer(finalCommand);
@@ -84,7 +86,7 @@ namespace WorkloadGenerator
             DateTime start = DateTime.Now;
             await Task.WhenAll(userCommands.Select(userCmds => Task.Run(async () =>
             {
-                //await ExecuteUserCommands(userCmds.Value);
+                await ExecuteUserCommands(userCmds.Value);
             })));
 
             Console.WriteLine($"Ran for {(DateTime.Now - start).TotalSeconds} seconds");
@@ -111,11 +113,12 @@ namespace WorkloadGenerator
                     new KeyValuePair<string, string>("Command", command)
                 });
                 var result = await httpClient.PostAsync(URI, formContent);
-                
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"-------------------Command: {command}-------------------");
                 Console.WriteLine(ex.StackTrace);
+                Console.WriteLine("--------------------------------------------------------");
             }
         }
     }
