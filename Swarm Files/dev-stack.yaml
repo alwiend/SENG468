@@ -117,7 +117,16 @@ services:
       day_trade_net:
         aliases:
           - databaseserver_db_1
-              
+        
+  redis-quote-cache:
+    image: redis
+    deploy:
+      mode: replicated
+      replicas: 1
+    networks:
+      day_trade_net:
+        aliases:
+          - redis_quote_cache         
       
   quote-server:
     image: quote_server_image

@@ -40,7 +40,7 @@ namespace SellTriggerService
             {
                 cmd.Connection = cnn;
                 cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandText = "";
+                cmd.CommandText = "set_sell_amount";
 
                 cmd.Parameters.AddWithValue("@pUserId", command.username);
                 cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;

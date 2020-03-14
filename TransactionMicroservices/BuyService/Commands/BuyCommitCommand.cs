@@ -30,7 +30,6 @@ namespace BuyService
             {
                 result = await LogErrorEvent(command, "Error getting account details").ConfigureAwait(false);
                 await LogDebugEvent(command, e.Message).ConfigureAwait(false);
-                Console.WriteLine(e);
             }
             return result;
         }

@@ -18,6 +18,8 @@ namespace SellTriggerService
         public decimal Amount { get; }
         public decimal Trigger { get; }
 
+        private decimal _cost;
+
         public SellTriggerTimer(string user, string ss, decimal amount, decimal trigger)
         {
             User = user;
@@ -43,20 +45,19 @@ namespace SellTriggerService
                     return;
                 }
 
-                ServiceConnection conn = new ServiceConnection(Constants.Server.QUOTE_SERVER);
-                string response = await conn.Send($"{StockSymbol},{User}", true).ConfigureAwait(false);
+                string response = await GetStock(User, StockSymbol).ConfigureAwait(false);
                 string[] args = response.Split(",");
 
-                decimal cost = Convert.ToDecimal(args[0]);
-                if (cost < Trigger)
+                _cost = Convert.ToDecimal(args[0]);
+                if (_cost < Trigger)
                 {
                     // Run trigger again
 
-                    int interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[3])));
+                    int interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[1])));
                     await Task.Delay(interval).ConfigureAwait(false);
                 } else
                 {
-                    await db.PerformTransaction(SellStock, cost).ConfigureAwait(false);
+                    await db.PerformTransaction(SellStock).ConfigureAwait(false);
                     return;
                 }
             }
@@ -89,10 +90,10 @@ namespace SellTriggerService
             }
         }
 
-        async Task SellStock(MySqlConnection cnn, decimal cost)
+        async Task<bool> SellStock(MySqlConnection cnn)
         {
-            decimal numStock = Math.Floor(Amount / cost); // most whole number stock that can buy
-            decimal amount = numStock * cost; // total amount spent
+            decimal numStock = Math.Floor(Amount / _cost); // most whole number stock that can buy
+            decimal amount = numStock * _cost; // total amount spent
             decimal leftover = Amount - amount;
 
             using (MySqlCommand cmd = new MySqlCommand())
@@ -112,6 +113,20 @@ namespace SellTriggerService
 
                 await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
             }
+            return true;
+        }
+
+        async Task<string> GetStock(string username, string stockSymbol)
+        {
+            UserCommandType cmd = new UserCommandType
+            {
+                server = Constants.Server.WEB_SERVER.Abbr,
+                command = commandType.SET_SELL_TRIGGER,
+                stockSymbol = stockSymbol,
+                username = username
+            };
+            ServiceConnection conn = new ServiceConnection(Constants.Service.QUOTE_SERVICE);
+            return await conn.Send(cmd, true).ConfigureAwait(false);
         }
     }
 }

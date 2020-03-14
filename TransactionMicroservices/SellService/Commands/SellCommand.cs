@@ -52,11 +52,10 @@ namespace SellService
             return result;
         }
 
-        async Task<string> GetStock(UserCommandType command)
+        async Task<string> GetStock (UserCommandType command)
         {
-            ServiceConnection conn = new ServiceConnection(Server.QUOTE_SERVER);
-            string quote = await conn.Send($"{command.stockSymbol},{command.username}", true).ConfigureAwait(false);
-            return await LogQuoteServerEvent(command, quote).ConfigureAwait(false);
+            ServiceConnection conn = new ServiceConnection(Service.QUOTE_SERVICE);
+            return await conn.Send(command, true).ConfigureAwait(false);
         }
 
         async Task<string> SellStock(MySqlConnection cnn, UserCommandType command)

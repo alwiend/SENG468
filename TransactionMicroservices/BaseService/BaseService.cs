@@ -12,6 +12,7 @@ using System.Threading;
 using Constants;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using StackExchange.Redis;
 
 namespace Base
 {
@@ -19,6 +20,15 @@ namespace Base
     {
         protected IAuditWriter Auditor { get; }
         protected ServiceConstant ServiceDetails { get; }
+
+        protected ConnectionMultiplexer muxer { get; }
+
+        public BaseService(ServiceConstant sc, IAuditWriter aw, ConnectionMultiplexer cm)
+        {
+            ServiceDetails = sc;
+            Auditor = aw;
+            muxer = cm;
+        }
 
         public BaseService(ServiceConstant sc, IAuditWriter aw)
         {
@@ -115,12 +125,13 @@ namespace Base
 
         private async Task ProcessClient(TcpClient client)
         {
+            UserCommandType command = null;
             try
             {
                 XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
 
                 using StreamReader client_in = new StreamReader(client.GetStream());
-                UserCommandType command = (UserCommandType)serializer.Deserialize(client_in);
+                command = (UserCommandType)serializer.Deserialize(client_in);
                 await LogServerEvent(command).ConfigureAwait(false);
 
                 string retData = await DataReceived(command).ConfigureAwait(false);
@@ -131,7 +142,8 @@ namespace Base
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                if (command != null) await LogDebugEvent(command, ex.Message);
+                else Console.WriteLine(ex);
             }
             finally
             {

@@ -52,7 +52,8 @@ BEGIN
 	
 	IF pMoney IS NOT NULL THEN
 		SELECT stock, price
-		FROM stocks;
+		FROM stocks
+		WHERE userid = pUserId;
 	ELSE
 		SET pMoney = -1;
 	END IF;
@@ -85,19 +86,23 @@ BEGIN
 	WHERE userid = pUserId;
 	
 	IF userMoney < 0 THEN
-		SET message = "User does not exist";
-		SET success = false;
+		BEGIN
+			SET message = "User does not exist";
+			SET success = false;
+		END;
 	ELSEIF userMoney < pStockAmount THEN
-		SET message = "Insufficient money";
-		SET success = false;
+		BEGIN
+			SET message = "Insufficient money";
+			SET success = false;
+		END;
 	ELSE
 		BEGIN
-			INSERT INTO transactions (userid, stock, price, transType, transTime)
-			VALUES (pUserId, pStock, pStockAmount, 'BUY', pServerTime);
-			
 			UPDATE user
 			SET money = money - pStockAmount
 			WHERE userid = pUserId;
+			
+			INSERT INTO transactions (userid, stock, price, transType, transTime)
+			VALUES (pUserId, pStock, pStockAmount, 'BUY', pServerTime);
 			
 			SET success = true;
 			SET message = "";
@@ -125,30 +130,91 @@ BEGIN
 	LIMIT 1;
 	
 	IF buyId IS NULL THEN
-		SET message = "No recent buys";
-		SET success = false;
-		SET stockBuy = "";
-		SET stockAmount = 0;
+		BEGIN
+			SET message = "No recent buys";
+			SET success = false;
+			SET stockBuy = "";
+			SET stockAmount = 0;
+		END;
 	ELSEIF pServerTime - buyTime > 60000 THEN
-		SET message = "No recent buys";
-		SET success = false;
-		SET stockBuy = "";
-		SET stockAmount = 0;
+		BEGIN
+			SET message = "No recent buys";
+			SET success = false;
 		
-		DELETE FROM transactions
-		WHERE id = buyId;
+			UPDATE user 
+			SET money = money + stockAmount
+			WHERE userid = pUserId;
+		
+			DELETE FROM transactions
+			WHERE id = buyId;
+		END;
 	ELSE
-		INSERT INTO stocks (userid, stock, price) 
-		VALUES (pUserId, stockBuy, stockAmount)
-		ON DUPLICATE KEY UPDATE price = price + stockAmount;
-		
-		DELETE FROM transactions
-		WHERE id = buyId;
-		
-		SET success = true;
-		SET message = "";
+		BEGIN
+			INSERT INTO stocks (userid, stock, price) 
+			VALUES (pUserId, stockBuy, stockAmount)
+			ON DUPLICATE KEY UPDATE price = price + stockAmount;
+			
+			DELETE FROM transactions
+			WHERE id = buyId;
+			
+			SET success = true;
+			SET message = "";
+		END;
 	END IF;
 
+END$$
+
+CREATE PROCEDURE buy_cancel_stock(
+IN pUserId VARCHAR(25),
+IN pServerTime BIGINT,
+OUT pStock VARCHAR(3),
+OUT pStockAmount INTEGER,
+OUT success BOOLEAN,
+out message TEXT)
+
+BEGIN	
+	DECLARE buyTime BIGINT;
+	DECLARE buyId INTEGER;
+
+	SELECT id, stock, price, transTime 
+	INTO buyId, pStock, pStockAmount, buyTime
+	FROM transactions
+    WHERE userid = pUserId AND transType='BUY'
+	ORDER BY transTime DESC
+	LIMIT 1;
+	
+	IF buyId IS NULL THEN
+		BEGIN
+			SET message = "No recent buys";
+			SET success = false;
+			SET pStock = "";
+			SET pStockAmount = 0;
+		END;
+	ELSEIF pServerTime - buyTime > 60000 THEN
+		BEGIN
+			SET message = "No recent buys";
+			SET success = false;
+			
+			UPDATE user 
+			SET money = money + pStockAmount
+			WHERE userid = pUserId;
+			
+			DELETE FROM transactions
+			WHERE id = buyId;
+		END;
+	ELSE
+		BEGIN
+			UPDATE user 
+			SET money = money + pStockAmount
+			WHERE userid = pUserId;
+			
+			DELETE FROM transactions
+			WHERE id = buyId;
+			
+			SET success = true;
+			SET message = "";
+		END;
+	END IF;
 END$$
 
 CREATE PROCEDURE sell_stock(
@@ -168,19 +234,23 @@ BEGIN
 	WHERE userid = pUserId AND stock = pStock;
 	
 	IF userStock IS NULL THEN
-		SET message = "User does not own that stock";
-		SET success = FALSE;
+		BEGIN
+			SET message = "User does not own that stock";
+			SET success = FALSE;
+		END;
 	ELSEIF userStock < pStockAmount THEN	
-		SET message = "Insufficient amount of stock";
-		SET success = FALSE;
+		BEGIN
+			SET message = "Insufficient amount of stock";
+			SET success = FALSE;
+		END;
 	ELSE	
 		BEGIN 
-			INSERT INTO transactions (userid, stock, price, transType, transTime)
-			VALUES (pUserId, pStock, pStockAmount, 'SELL', pServerTime);
-			
 			UPDATE stocks
 			SET price = price - pStockAmount
-			WHERE userid = pUserId AND stock = PStock;
+			WHERE userid = pUserId AND stock = pStock;
+			
+			INSERT INTO transactions (userid, stock, price, transType, transTime)
+			VALUES (pUserId, pStock, pStockAmount, 'SELL', pServerTime);
 			
 			SET success = TRUE;
 			SET message = "";
@@ -208,82 +278,88 @@ BEGIN
 	LIMIT 1;
 	
 	IF sellId IS NULL THEN
-		SET message = "No recent sells";
-		SET success = false;
+		BEGIN
+			SET message = "No recent sells";
+			SET success = false;
+		END;
 	ELSEIF pServerTime - sellTime > 60000 THEN
-		SET message = "No recent sells";
-		SET success = false;
-		
-		DELETE FROM transactions
-		WHERE id = sellId;
+		BEGIN
+			SET message = "No recent sells";
+			SET success = false;
+			
+			UPDATE stocks
+			SET price = price + pStockAmount
+			WHERE userid = pUserId AND stock = pStock;
+			
+			DELETE FROM transactions
+			WHERE id = sellId;
+		END;
 	ELSE
-		INSERT INTO stocks (userid, stock, price) 
-		VALUES (pUserId, pStock, pStockAmount)
-		ON DUPLICATE KEY UPDATE price = price + pStockAmount;
-		
-		DELETE FROM transactions
-		WHERE id = sellId;
-		
-		SET success = true;
-		SET message = "";
+		BEGIN
+			UPDATE user
+			SET money = money + pStockAmount
+			WHERE userid = pUserId;
+			
+			DELETE FROM transactions
+			WHERE id = sellId;
+			
+			SET success = true;
+			SET message = "";
+		END;
 	END IF;
 
 END$$
 
 CREATE PROCEDURE sell_cancel_stock(
 IN pUserId VARCHAR(25),
+IN pServerTime BIGINT,
 OUT pStock VARCHAR(3),
 OUT pStockAmount INTEGER,
-OUT pServerTime BIGINT,
 OUT success BOOLEAN,
 out message TEXT)
 
 BEGIN	
-	DECLARE done INT DEFAULT FALSE;
-	DECLARE S, tempS VARCHAR(3);
-	DECLARE SA, tempSA INTEGER;
-	DECLARE ST, tempST TEXT;
-	DECLARE minTime VARCHAR(10);
+	DECLARE sellTime BIGINT;
+	DECLARE sellId INTEGER;
 
-	DECLARE t CURSOR FOR
-	SELECT stock, price, transTime
+	SELECT id, stock, price, transTime 
+	INTO sellId, pStock, pStockAmount, sellTime
 	FROM transactions
-	WHERE userid = pUserId AND transType = 'SELL';
-	DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
-	SET minTime = 60;
+    WHERE userid = pUserId AND transType='SELL'
+	ORDER BY transTime DESC
+	LIMIT 1;
 	
-	OPEN t;
-	
-	trans_loop: LOOP
-		FETCH t INTO tempS, tempSA, tempST;
-		IF done THEN
-			LEAVE trans_loop;
-		END IF;
-		IF (UNIX_TIMESTAMP() - tempST) < minTime THEN
-			SET S = tempS;
-			SET SA = tempSA;
-			SET ST = tempST;
-			SET minTIme = UNIX_TIMESTAMP() - tempST;
-		END IF;
-	END LOOP;
-	CLOSE t;
-	IF SA IS NULL THEN
-		SET success = FALSE;
-		SET message = "User has no recent sell transactions to cancel";
+	IF sellId IS NULL THEN
+		BEGIN
+			SET message = "No recent sells";
+			SET success = false;
+			SET pStock = "";
+			SET pStockAmount = 0;
+		END;
+	ELSEIF pServerTime - sellTime > 60000 THEN
+		BEGIN
+			SET message = "No recent sells";
+			SET success = false;
+			
+			UPDATE stocks
+			SET price = price + pStockAmount
+			WHERE userid = pUserId AND stock = pStock;
+			
+			DELETE FROM transactions
+			WHERE id = sellId;
+		END;
 	ELSE
-		UPDATE stocks 
-		SET price = price + SA
-		WHERE userid = pUserId AND stock = S;
-		
-		SET @TRIGGER_AFTER_DELETE_ENABLED = FALSE;
-		DELETE FROM transactions
-		WHERE userid = pUserId AND stock = S AND price = SA AND transType = 'SELL' AND transTime = ST;
-	
-		SET success = TRUE;
-		SET message = "";
-		SET pStock = S;
-		SET pStockAmount = SA;
-		SET pServerTime = ST;
+		BEGIN
+			UPDATE stocks
+			SET price = price + pStockAmount
+			WHERE userid = pUserId AND stock = pStock;
+			
+			DELETE FROM transactions
+			WHERE id = sellId;
+			
+			SET success = true;
+			SET message = "";
+		END;
 	END IF;
 END$$
 
@@ -298,38 +374,47 @@ BEGIN
 	DECLARE userStock INTEGER;
 	DECLARE userMoney INTEGER;
 	
+	SELECT money 
+	INTO userMoney
+	FROM user
+	WHERE userid = pUserId;
+	
 	SELECT amount
 	INTO userStock
 	FROM triggers
 	WHERE userid = pUserId AND stock = pStock AND triggerType = 'SELL';
 	
-	SELECT money 
-	INTO userMoney
-	FROM user
-	WHERE userid = pUserId;
 	setAmount: BEGIN
 		IF userMoney IS NULL THEN
-			SET success = FALSE;
-			SET message = "User does not exist";
-			LEAVE setAmount;
+			BEGIN
+				SET success = FALSE;
+				SET message = "User does not exist";
+				LEAVE setAmount;
+			END;
 		ELSEIF userMoney < pStockAmount THEN 
-			SET success = FALSE;
-			SET message = "Insuffiecient amount of stock for this transaction";
-			LEAVE setAmount;
+			BEGIN
+				SET success = FALSE;
+				SET message = "Insuffiecient amount of stock for this transaction";
+				LEAVE setAmount;
+			END;
 		END IF;
 		IF userStock IS NULL THEN
-			INSERT INTO triggers (userid, stock, amount, triggerType)
-			VALUES (pUserId, pStock, pStockAmount, 'SELL');
-
-			UPDATE stocks
-			SET price = price - pStockAmount
-			WHERE userid = pUserId AND stock = pStock;
-			
-			SET success = TRUE;
-			SET message = "";
+			BEGIN
+				UPDATE stocks
+				SET price = price - pStockAmount
+				WHERE userid = pUserId AND stock = pStock;
+				
+				INSERT INTO triggers (userid, stock, amount, triggerType)
+				VALUES (pUserId, pStock, pStockAmount, 'SELL');
+				
+				SET success = TRUE;
+				SET message = "";
+			END;
 		ELSE
-			SET message = "User already has a trigger set for this stock";
-			SET success = FALSE;
+			BEGIN
+				SET message = "User already has a trigger set for this stock";
+				SET success = FALSE;
+			END;
 		END IF;
 	END;
 END$$
@@ -345,38 +430,47 @@ BEGIN
 	DECLARE userStock INTEGER;
 	DECLARE userMoney INTEGER;
 	
+	SELECT money 
+	INTO userMoney
+	FROM user
+	WHERE userid = pUserId;
+	
 	SELECT amount
 	INTO userStock
 	FROM triggers
 	WHERE userid = pUserId AND stock = pStock AND triggerType = 'BUY';
 	
-	SELECT money 
-	INTO userMoney
-	FROM user
-	WHERE userid = pUserId;
 	setAmount: BEGIN
 		IF userMoney IS NULL THEN
-			SET success = FALSE;
-			SET message = "User does not exist";
-			LEAVE setAmount;
+			BEGIN
+				SET success = FALSE;
+				SET message = "User does not exist";
+				LEAVE setAmount;
+			END;
 		ELSEIF userMoney < pBuyAmount THEN 
-			SET success = FALSE;
-			SET message = "User has an insufficient amount of funds for this trigger";
-			LEAVE setAmount;
+			BEGIN
+				SET success = FALSE;
+				SET message = "User has an insufficient amount of funds for this trigger";
+				LEAVE setAmount;
+			END;
 		END IF;
 		IF userStock IS NULL THEN
-			INSERT INTO triggers (userid, stock, amount, triggerType)
-			VALUES (pUserId, pStock, pBuyAmount, 'BUY');
+			BEGIN
+				UPDATE user
+				SET money = money - pBuyAmount
+				WHERE userid = pUserId;
+				
+				INSERT INTO triggers (userid, stock, amount, triggerType)
+				VALUES (pUserId, pStock, pBuyAmount, 'BUY');
 
-			UPDATE user
-			SET money = money - pBuyAmount
-			WHERE userid = pUserId;
-			
-			SET success = TRUE;
-			SET message = "";
+				SET success = TRUE;
+				SET message = "";
+			END;
 		ELSE
-			SET message = "User already has a trigger set for this stock";
-			SET success = FALSE;
+			BEGIN
+				SET message = "User already has a trigger set for this stock";
+				SET success = FALSE;
+			END;
 		END IF;
 	END;
 END$$
@@ -396,18 +490,22 @@ BEGIN
 	WHERE userid = pUserId AND stock = pStock AND triggerType = 'SELL';
 	
 	IF userStock IS NULL THEN
-		SET message = "User does not have a trigger set for this stock";
-		SET success = FALSE;
+		BEGIN
+			SET message = "User does not have a trigger set for this stock";
+			SET success = FALSE;
+		END;
 	ELSE
-		UPDATE stocks 
-		SET price = price + userStock
-		WHERE userid = pUserId AND stock = pStock;
-		
-		DELETE FROM triggers
-		WHERE userid = pUserId AND stock = pStock AND triggerType = 'SELL';
-		
-		SET success = TRUE;
-		SET message = "";
+		BEGIN
+			UPDATE stocks 
+			SET price = price + userStock
+			WHERE userid = pUserId AND stock = pStock;
+			
+			DELETE FROM triggers
+			WHERE userid = pUserId AND stock = pStock AND triggerType = 'SELL';
+			
+			SET success = TRUE;
+			SET message = "";
+		END;
 	END IF;
 END$$
 
@@ -420,27 +518,31 @@ OUT success BOOLEAN,
 OUT message TEXT)
 
 BEGIN
-	DECLARE userTrigger INTEGER;
+	DECLARE userStock INTEGER;
 	
 	SELECT amount
-	INTO userTrigger
+	INTO userStock
 	FROM triggers
 	WHERE userid = pUserId AND stock = pStock AND triggerType = 'BUY';
 	
-	IF userTrigger IS NULL THEN
-		SET message = "User does not have a trigger set for this stock";
-		SET success = FALSE;
+	IF userStock IS NULL THEN
+		BEGIN
+			SET message = "User does not have a trigger set for this stock";
+			SET success = FALSE;
+		END;
 	ELSE
-		UPDATE user 
-		SET money = money + userTrigger
-		WHERE userid = pUserId;
-		
-		DELETE FROM triggers
-		WHERE userid = pUserId AND stock = pStock AND triggerType = 'BUY';
-		
-		SET StockAmount = userTrigger;
-		SET success = TRUE;
-		SET message = "";
+		BEGIN
+			UPDATE user 
+			SET money = money + userStock
+			WHERE userid = pUserId;
+			
+			DELETE FROM triggers
+			WHERE userid = pUserId AND stock = pStock AND triggerType = 'BUY';
+			
+			SET StockAmount = userStock;
+			SET success = TRUE;
+			SET message = "";
+		END;
 	END IF;
 END$$
 
@@ -458,26 +560,32 @@ BEGIN
 	DECLARE trigAmount INTEGER;
 	
 	SELECT amount, triggerAmount
+	INTO tAmount, trigAmount
 	FROM triggers
-	WHERE userid = pUserId AND stock = pStock AND triggerType = pTriggerType
-	INTO tAmount, trigAmount;
+	WHERE userid = pUserId AND stock = pStock AND triggerType = pTriggerType;
 	
 	IF tAmount IS NULL THEN
-		SET stockAmount = 0;
-		SET success = FALSE;
-		SET message = "User does not have a trigger set for this stock";
+		BEGIN
+			SET stockAmount = 0;
+			SET success = FALSE;
+			SET message = "User does not have a trigger set for this stock";
+		END;
 	ELSEIF trigAmount = pTriggerAmount THEN
-		SET stockAmount = 0;
-		SET success = FALSE;
-		SET message = "Trigger for this stock is already set";
+		BEGIN
+			SET stockAmount = 0;
+			SET success = FALSE;
+			SET message = "Trigger for this stock is already set";
+		END;
 	ELSE
-		UPDATE triggers
-		SET triggerAmount = pTriggerAmount
-		WHERE userid = pUserId AND stock = pStock AND triggerType = pTriggerType;
-		
-		SET stockAmount = tAmount;
-		SET success = TRUE;
-		SET message = "";
+		BEGIN
+			UPDATE triggers
+			SET triggerAmount = pTriggerAmount
+			WHERE userid = pUserId AND stock = pStock AND triggerType = pTriggerType;
+			
+			SET stockAmount = tAmount;
+			SET success = TRUE;
+			SET message = "";
+		END;
 	END IF;
 END$$
 
@@ -492,9 +600,8 @@ BEGIN
 	SET money = money + pStockAmount
 	WHERE userid = pUserId;
 	
-	INSERT INTO stocks(userid, stock, price) 
-	VALUES(pUserId, pStock, pStockLeftover)
-	ON DUPLICATE KEY UPDATE price = price + pStockLeftover;
+	UPDATE stock 
+	SET price = price + pStockLeftover;
 	
 	DELETE FROM triggers 
 	WHERE userid = pUserId AND stock = pStock AND triggerType = 'SELL';
@@ -507,13 +614,13 @@ IN pStockAmount INTEGER,
 IN pMoneyLeftover INTEGER)
 
 BEGIN 
-	INSERT INTO stocks(userid, stock, price)
-	VALUES(pUserId, pStock, pStockAmount)
-	ON DUPLICATE KEY UPDATE price = price + pStockAmount;
-	
 	UPDATE user
 	SET money = money + pMoneyLeftover
 	WHERE userid = pUserId;
+	
+	INSERT INTO stocks(userid, stock, price)
+	VALUES(pUserId, pStock, pStockAmount)
+	ON DUPLICATE KEY UPDATE price = price + pStockAmount;
 	
 	DELETE FROM triggers 
 	WHERE userid = pUserId AND stock = pStock AND triggerType = 'BUY';
@@ -530,17 +637,13 @@ OUT success BOOLEAN)
 BEGIN
 	DECLARE ifExists INTEGER;
 	
-	SELECT 1
-	INTO ifExists
-	FROM triggers
-	WHERE userid = pUserId AND stock = pStock AND triggerType = pTriggerType 
-	AND amount = pStockAmount AND triggerAmount = pTriggerAmount;
-	
-	IF ifExists IS NULL THEN
-		SET success = FALSE;
-	ELSE 
-		SET success = TRUE;
-	END IF;
+	SELECT EXISTS (
+		SELECT 1 
+		FROM triggers 
+		WHERE userid = pUserId AND stock = pStock AND triggerType = pTriggerType 
+		AND amount = pStockAmount AND triggerAmount = pTriggerAmount;
+	) 
+	INTO success;
 END$$
 
 CREATE EVENT clear_expired_transactions
@@ -548,27 +651,8 @@ CREATE EVENT clear_expired_transactions
 		EVERY 1 MINUTE
 	COMMENT 'Clears transactions from table that are expired and returns objects back to users ownership'
 	DO
-	BEGIN
-		SET @TRIGGER_AFTER_DELETE_ENABLED = TRUE;
-		DELETE FROM transactions WHERE (UNIX_TIMESTAMP() - transTime) < 60;
-	END$$
-	
-CREATE TRIGGER transactions_after_delete
-	AFTER DELETE
-	ON transactions FOR EACH ROW
-	trig: BEGIN
-	IF (@TRIGGER_AFTER_DELETE_ENABLED = FALSE) THEN
-		LEAVE trig;
-	END IF;
-	IF (OLD.transType = 'SELL') THEN
-		INSERT INTO stocks(userid, stock, price)
-		VALUES(OLD.userid, OLD.stock, OLD.price)
-		ON DUPLICATE KEY UPDATE price = price + OLD.price;
-	ELSEIF (OLD.transType = 'BUY') THEN
-		INSERT INTO user(userid, money)
-		VALUES(OLD.userid, OLD.price)
-		ON DUPLICATE KEY UPDATE money = money + OLD.price;
-	END IF;
+BEGIN
+	DELETE FROM transactions WHERE (UNIX_TIMESTAMP() - transTime) < 60;
 END$$
 
 DELIMITER ;

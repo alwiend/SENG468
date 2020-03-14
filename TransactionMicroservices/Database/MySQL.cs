@@ -11,7 +11,16 @@ namespace Database
     public class MySQL
     {
         private static string ConnectionString = "server=databaseserver_db_1;port=3306;database=db;user=user;password=password;";
-        
+
+        public async Task<bool> PerformTransaction(Func<MySqlConnection, Task<bool>> transaction)
+        {
+            using (MySqlConnection cnn = new MySqlConnection(ConnectionString))
+            {
+                await cnn.OpenAsync().ConfigureAwait(false);
+               return await transaction(cnn).ConfigureAwait(false);
+            }
+        }
+
         public async Task PerformTransaction(Func<MySqlConnection, UserCommandType, Task> transaction, UserCommandType o)
         {
             using (MySqlConnection cnn = new MySqlConnection(ConnectionString))
