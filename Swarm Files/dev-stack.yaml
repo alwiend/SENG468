@@ -113,6 +113,7 @@ services:
       # Where our data will be persisted
     volumes:
       - ../DatabaseServer/data/init:/docker-entrypoint-initdb.d
+      - ../DatabaseServer/data/config/conf.d:/etc/mysql/conf.d
     networks:
       day_trade_net:
         aliases:

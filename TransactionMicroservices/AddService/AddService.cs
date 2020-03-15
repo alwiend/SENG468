@@ -37,7 +37,7 @@ namespace AddService
                 MySQL db = new MySQL();
 
                 await db.PerformTransaction(AddMoney, command).ConfigureAwait(false);
-                result = $"Successfully added {command.funds} into {command.username}'s account";
+                result = $"Successfully added {command.funds/100m} into {command.username}'s account";
 
                 await LogTransactionEvent(command, "add").ConfigureAwait(false);
             }
@@ -59,7 +59,7 @@ namespace AddService
 
                 cmd.Parameters.AddWithValue("@pUserId", command.username);
                 cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
-                cmd.Parameters.AddWithValue("@pFunds", command.funds*100);
+                cmd.Parameters.AddWithValue("@pFunds", command.funds);
                 cmd.Parameters["@pFunds"].Direction = ParameterDirection.Input;
 
                 await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);

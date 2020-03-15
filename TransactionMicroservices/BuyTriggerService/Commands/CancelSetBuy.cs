@@ -22,9 +22,18 @@ namespace BuyTriggerService
             string result = "";
             try
             {
-                // Check if trigger exists
-                MySQL db = new MySQL();
-                result = await db.PerformTransaction(CancelBuy, command).ConfigureAwait(false);
+                var trigger = BuyTriggerTimer.RemoveUserTrigger(command.username, command.stockSymbol);
+                if (trigger != null)
+                {
+                    command.fundsSpecified = true;
+                    command.funds = trigger.Amount;
+                    // Check if trigger exists
+                    MySQL db = new MySQL();
+                    result = await db.PerformTransaction(CancelBuy, command).ConfigureAwait(false);
+                } else
+                {
+                    return await LogErrorEvent(command, $"No trigger set for {command.stockSymbol}");
+                }
             }
             catch (Exception ex)
             {
@@ -40,26 +49,15 @@ namespace BuyTriggerService
             {
                 cmd.Connection = cnn;
                 cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandText = "cancel_set_buy";
+                cmd.CommandText = "return_user_money";
 
                 cmd.Parameters.AddWithValue("@pUserId", command.username);
                 cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
-                cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
-                cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
-                cmd.Parameters.Add(new MySqlParameter("@StockAmount", MySqlDbType.Int32));
-                cmd.Parameters["@StockAmount"].Direction = ParameterDirection.Output;
-                cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
-                cmd.Parameters["@success"].Direction = ParameterDirection.Output;
-                cmd.Parameters.Add(new MySqlParameter("@message", MySqlDbType.Text));
-                cmd.Parameters["@message"].Direction = ParameterDirection.Output;
+                cmd.Parameters.AddWithValue("@pMoney", command.funds);
+                cmd.Parameters["@pMoney"].Direction = ParameterDirection.Input;
 
                 await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
 
-                if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
-                {
-                    return Convert.ToString(cmd.Parameters["@message"].Value);
-                }
-                command.funds = Convert.ToDecimal(cmd.Parameters["@StockAmount"].Value) / 100m;
                 await LogTransactionEvent(command, "add").ConfigureAwait(false);
                 return $"Successfully removed trigger to buy stock {command.stockSymbol}";
             }

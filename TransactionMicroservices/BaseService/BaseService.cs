@@ -54,7 +54,7 @@ namespace Base
                 stockSymbol = command.stockSymbol
             };
             if (command.fundsSpecified)
-                sysEvent.funds = command.funds;
+                sysEvent.funds = command.funds/100m;
             Auditor.WriteRecord(sysEvent).ConfigureAwait(false);
         }
 
@@ -66,13 +66,14 @@ namespace Base
                 server = ServiceDetails.Abbr,
                 transactionNum = command.transactionNum,
                 action = action,
-                username = command.username,
-                funds = command.funds
+                username = command.username
             };
+            if (command.fundsSpecified)
+                transaction.funds = command.funds / 100m;
             Auditor.WriteRecord(transaction).ConfigureAwait(false);
         }
 
-        protected async Task<string> LogQuoteServerEvent(UserCommandType command, string quote)
+        protected async Task<int> LogQuoteServerEvent(UserCommandType command, string quote)
         {
             //Cost,StockSymbol,UserId,Timestamp,CryptoKey
             string[] args = quote.Split(",");
@@ -80,7 +81,7 @@ namespace Base
             {
                 username = args[2],
                 server = Server.QUOTE_SERVER.Abbr,
-                price = decimal.Parse(args[0]),
+                price = Convert.ToDecimal(args[0]),
                 transactionNum = command.transactionNum,
                 stockSymbol = args[1],
                 timestamp = Unix.TimeStamp.ToString(),
@@ -88,7 +89,7 @@ namespace Base
                 cryptokey = args[4]
             };
             Auditor.WriteRecord(stockQuote).ConfigureAwait(false);
-            return stockQuote.price.ToString();
+            return (int)(stockQuote.price * 100);
         }
 
         protected async Task<string> LogErrorEvent(UserCommandType command, string err)
@@ -101,9 +102,12 @@ namespace Base
                 command = command.command,
                 username = command.username,
                 stockSymbol = command.stockSymbol,
-                funds = command.funds,
+                fundsSpecified = command.fundsSpecified,
                 errorMessage = err
             };
+            if (command.fundsSpecified)
+                error.funds = command.funds / 100m;
+
             Auditor.WriteRecord(error).ConfigureAwait(false);
             return error.errorMessage;
         }
@@ -116,8 +120,11 @@ namespace Base
                 server = ServiceDetails.Abbr,
                 transactionNum = command.transactionNum,
                 command = command.command,
-                debugMessage = err
+                debugMessage = err,
+                fundsSpecified = command.fundsSpecified
             };
+            if (command.fundsSpecified)
+                bug.funds = command.funds / 100m;
             Auditor.WriteRecord(bug).ConfigureAwait(false);
         }
 
@@ -135,6 +142,7 @@ namespace Base
                 await LogServerEvent(command).ConfigureAwait(false);
 
                 string retData = await DataReceived(command).ConfigureAwait(false);
+                //string retData = command.command.ToString();
 
                 using StreamWriter client_out = new StreamWriter(client.GetStream());
                 await client_out.WriteAsync(retData).ConfigureAwait(false);

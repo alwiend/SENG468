@@ -46,20 +46,6 @@ namespace WebServer.Pages
                 return Page();
             }
 
-            if (Command == "AsyncTest")
-            {
-                UserCommandType cmd = new UserCommandType
-                {
-                    timestamp = Unix.TimeStamp.ToString(),
-                    server = Server.WEB_SERVER.Abbr,
-                    command = commandType.QUOTE,
-                    username = "AsyncTest",
-                    transactionNum = _globalTransaction.Count.ToString()
-                };
-                _writer.WriteRecord(cmd);
-                return Page();
-            }
-
             string[] args = Array.ConvertAll(Command.Split(','), p => p.Trim());
             if (!Enum.TryParse(typeof(commandType), args[0].ToUpper(), out object ct))
             {
@@ -82,7 +68,8 @@ namespace WebServer.Pages
                     {
                         userCommand.stockSymbol = args[2];
                         userCommand.username = args[1];
-                        Result = await GetServiceResult(Service.QUOTE_SERVICE, userCommand);
+                        var quote = await GetServiceResult(Service.QUOTE_SERVICE, userCommand);
+                        Result = $"{Convert.ToDecimal(quote) / 100m}";
                     } else
                     {
                         Result = "Usage: QUOTE,userid,stock";
@@ -92,7 +79,7 @@ namespace WebServer.Pages
                     if (args.Length == 3)
                     {
                         userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[2]);
+                        userCommand.funds = Convert.ToDecimal(args[2]) * 100;
                         userCommand.username = args[1];
                         Result = await GetServiceResult(Service.ADD_SERVICE, userCommand);
                     }
@@ -124,7 +111,7 @@ namespace WebServer.Pages
                         userCommand.username = args[1];
                         userCommand.stockSymbol = args[2];
                         userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]);
+                        userCommand.funds = Convert.ToDecimal(args[3]) * 100;
                         Result = await GetServiceResult(Service.BUY_SERVICE, userCommand);
                     } else
                     {
@@ -155,7 +142,7 @@ namespace WebServer.Pages
                     if (args.Length == 4)
                     {
                         userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]);
+                        userCommand.funds = Convert.ToDecimal(args[3]) * 100;
                         userCommand.username = args[1];
                         userCommand.stockSymbol = args[2];
                         Result = await GetServiceResult(Service.SELL_SERVICE, userCommand);
@@ -190,7 +177,7 @@ namespace WebServer.Pages
                         userCommand.username = args[1];
                         userCommand.stockSymbol = args[2];
                         userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]);
+                        userCommand.funds = Convert.ToDecimal(args[3]) * 100;
                         Result = await GetServiceResult(Service.BUY_TRIGGER_AMOUNT_SERVICE, userCommand);
                     }
                     else
@@ -216,7 +203,7 @@ namespace WebServer.Pages
                         userCommand.username = args[1];
                         userCommand.stockSymbol = args[2];
                         userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]);
+                        userCommand.funds = Convert.ToDecimal(args[3]) * 100;
                         Result = await GetServiceResult(Service.BUY_TRIGGER_SET_SERVICE, userCommand);
                     }
                     else
@@ -230,7 +217,7 @@ namespace WebServer.Pages
                         userCommand.username = args[1];
                         userCommand.stockSymbol = args[2];
                         userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]);
+                        userCommand.funds = Convert.ToDecimal(args[3]) * 100;
                         Result = await GetServiceResult(Service.SELL_TRIGGER_AMOUNT_SERVICE, userCommand);
                     }
                     else
@@ -244,7 +231,7 @@ namespace WebServer.Pages
                         userCommand.username = args[1];
                         userCommand.stockSymbol = args[2];
                         userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]);
+                        userCommand.funds = Convert.ToDecimal(args[3]) * 100;
                         Result = await GetServiceResult(Service.SELL_TRIGGER_SET_SERVICE, userCommand);
                     }
                     else
@@ -294,6 +281,7 @@ namespace WebServer.Pages
                 //ServiceConnection conn = new ServiceConnection(IPAddress.Loopback, sc.Port);
                 ServiceConnection conn = new ServiceConnection(sc);
                 return await conn.Send(userCommand, true).ConfigureAwait(false);
+                //return $"WebServer: {userCommand.command}";
             } catch(Exception ex)
             {
                 await LogDebugEvent(userCommand, ex.Message);
