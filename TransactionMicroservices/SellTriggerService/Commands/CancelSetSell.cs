@@ -19,12 +19,22 @@ namespace SellTriggerService
 
         protected override async Task<string> DataReceived(UserCommandType command)
         {
-            string result;
+            string result = "";
             try
             {
-                // Check if trigger exists
-                MySQL db = new MySQL(); 
-                result = await db.PerformTransaction(SetCancel, command).ConfigureAwait(false);
+                var trigger = SellTriggerTimer.RemoveUserTrigger(command.username, command.stockSymbol);
+                if (trigger != null)
+                {
+                    command.fundsSpecified = true;
+                    command.funds = trigger.Amount;
+                    // Check if trigger exists
+                    MySQL db = new MySQL();
+                    result = await db.PerformTransaction(CancelSell, command).ConfigureAwait(false);
+                }
+                else
+                {
+                    return await LogErrorEvent(command, $"No trigger set for {command.stockSymbol}");
+                }
             }
             catch (Exception ex)
             {
@@ -34,30 +44,24 @@ namespace SellTriggerService
             return result;
         }
 
-        async Task<string> SetCancel(MySqlConnection cnn, UserCommandType command)
+        async Task<string> CancelSell(MySqlConnection cnn, UserCommandType command)
         {
             using (MySqlCommand cmd = new MySqlCommand())
             {
                 cmd.Connection = cnn;
                 cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandText = "cancel_set_sell";
+                cmd.CommandText = "return_user_stock";
 
                 cmd.Parameters.AddWithValue("@pUserId", command.username);
                 cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
                 cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
                 cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
-                cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
-                cmd.Parameters["@success"].Direction = ParameterDirection.Output;
-                cmd.Parameters.Add(new MySqlParameter("@message", MySqlDbType.Text));
-                cmd.Parameters["@message"].Direction = ParameterDirection.Output;
+                cmd.Parameters.AddWithValue("@pStockAmount", command.funds);
+                cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Input;
 
                 await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
 
-                if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
-                {
-                    return Convert.ToString(cmd.Parameters["@message"].Value);
-                }
-                return $"Successfully removed trigger for stock {command.stockSymbol}";
+                return $"Successfully removed trigger to sell stock {command.stockSymbol}";
             }
         }
     }

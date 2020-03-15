@@ -36,7 +36,7 @@ namespace BuyService
                 
                 if (result == null)
                 {
-                    result = $"{numStock} stock is available for purchase at {stockCost} per share totalling {String.Format("{0:0.00}", command.funds)}.";
+                    result = $"{numStock} stock is available for purchase at {cost/100m} per share totalling {String.Format("{0:0.00}", command.funds/100m)}.";
                 }
             }
             catch (Exception e)
@@ -65,7 +65,7 @@ namespace BuyService
                 cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
                 cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
                 cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
-                cmd.Parameters.AddWithValue("@pStockAmount", (int)(command.funds*100));
+                cmd.Parameters.AddWithValue("@pStockAmount", (int)(command.funds));
                 cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Input;
                 cmd.Parameters.AddWithValue("@pServerTime", Unix.TimeStamp);
                 cmd.Parameters["@pServerTime"].Direction = ParameterDirection.Input;

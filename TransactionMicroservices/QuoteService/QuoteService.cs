@@ -61,7 +61,9 @@ namespace QuoteService
         {
             ServiceConnection conn = new ServiceConnection(Server.QUOTE_SERVER);
             var quote = await conn.Send($"{command.stockSymbol},{command.username}", true).ConfigureAwait(false);
-            var result = $"{await LogQuoteServerEvent(command, quote).ConfigureAwait(false)},{Unix.TimeStamp}";
+            var cost = await LogQuoteServerEvent(command, quote).ConfigureAwait(false);
+
+            var result = $"{cost},{Unix.TimeStamp}";
             redisConn.StringSet(command.stockSymbol.ToUpper(), result);
             return result;
         }

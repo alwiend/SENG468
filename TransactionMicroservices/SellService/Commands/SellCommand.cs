@@ -41,7 +41,7 @@ namespace SellService
                 result = await db.PerformTransaction(SellStock, command).ConfigureAwait(false);
                 if (result == null)
                 {
-                    result = $"{numStock} stock is available for sale at {stockCost} per share totalling {String.Format("{0:0.00}", command.funds)}";
+                    result = $"{numStock} stock is available for sale at {cost/100m} per share totalling {String.Format("{0:0.00}", command.funds/100m)}";
                 }
             }
             catch (Exception e)
@@ -70,7 +70,7 @@ namespace SellService
                 cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
                 cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
                 cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
-                cmd.Parameters.AddWithValue("@pStockAmount", (int)(command.funds * 100));
+                cmd.Parameters.AddWithValue("@pStockAmount", (int)(command.funds));
                 cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Input;
                 cmd.Parameters.AddWithValue("@pServerTime", Unix.TimeStamp.ToString());
                 cmd.Parameters["@pServerTime"].Direction = ParameterDirection.Input;

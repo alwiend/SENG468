@@ -28,17 +28,72 @@ transTime BIGINT,
 PRIMARY KEY (id)
 ) COMMENT='table for pending buy/sell transactions';
 
-CREATE TABLE triggers
-(
-userid VARCHAR(25),
-stock VARCHAR(3),
-amount INTEGER,
-triggerType VARCHAR(4),
-triggerAmount INTEGER,
-PRIMARY KEY(userid,stock,triggerType)
-) COMMENT='table for buy/sell triggers';
-
 DELIMITER $$
+
+CREATE PROCEDURE get_user_money(
+IN pUserId VARCHAR(25),
+OUT pMoney INTEGER)
+
+BEGIN
+	SELECT money 
+	INTO pMoney
+	FROM user 
+	WHERE userid = pUserId;
+END$$
+
+CREATE PROCEDURE hold_user_money(
+IN pUserId VARCHAR(25),
+IN pMoney INTEGER)
+
+BEGIN
+	UPDATE user
+	SET money = money - pMoney
+	WHERE userid = pUserId;
+END$$
+
+CREATE PROCEDURE return_user_money(
+IN pUserId VARCHAR(25),
+IN pMoney INTEGER)
+
+BEGIN
+	UPDATE user
+	SET money = money + pMoney
+	WHERE userid = pUserId;
+END$$
+
+CREATE PROCEDURE get_user_stock(
+IN pUserId VARCHAR(25),
+IN pStock VARCHAR(3),
+OUT pStockAmount INTEGER)
+
+BEGIN
+	SELECT price
+	INTO pStockAmount
+	FROM stocks
+	WHERE userid = pUserId AND stock = pStock;
+END$$
+
+CREATE PROCEDURE hold_user_stock(
+IN pUserId VARCHAR(25),
+IN pStock VARCHAR(3),
+IN pStockAmount INTEGER)
+
+BEGIN
+	UPDATE stocks
+	SET price = price - pStockAmount
+	WHERE userid = pUserId AND stock = pStock;
+END$$
+
+CREATE PROCEDURE return_user_stock(
+IN pUserId VARCHAR(25),
+IN pStock VARCHAR(3),
+IN pStockAmount INTEGER)
+
+BEGIN
+	UPDATE stocks
+	SET price = price + pStockAmount
+	WHERE userid = pUserId AND stock = pStock;
+END$$
 
 CREATE PROCEDURE display_summary(
 IN pUserId VARCHAR(25),
@@ -363,232 +418,6 @@ BEGIN
 	END IF;
 END$$
 
-CREATE PROCEDURE set_sell_amount(
-IN pUserId VARCHAR(25),
-IN pStock VARCHAR(3),
-IN pStockAmount INTEGER,
-OUT success BOOLEAN,
-OUT message TEXT)
-
-BEGIN
-	DECLARE userStock INTEGER;
-	DECLARE userMoney INTEGER;
-	
-	SELECT money 
-	INTO userMoney
-	FROM user
-	WHERE userid = pUserId;
-	
-	SELECT amount
-	INTO userStock
-	FROM triggers
-	WHERE userid = pUserId AND stock = pStock AND triggerType = 'SELL';
-	
-	setAmount: BEGIN
-		IF userMoney IS NULL THEN
-			BEGIN
-				SET success = FALSE;
-				SET message = "User does not exist";
-				LEAVE setAmount;
-			END;
-		ELSEIF userMoney < pStockAmount THEN 
-			BEGIN
-				SET success = FALSE;
-				SET message = "Insuffiecient amount of stock for this transaction";
-				LEAVE setAmount;
-			END;
-		END IF;
-		IF userStock IS NULL THEN
-			BEGIN
-				UPDATE stocks
-				SET price = price - pStockAmount
-				WHERE userid = pUserId AND stock = pStock;
-				
-				INSERT INTO triggers (userid, stock, amount, triggerType)
-				VALUES (pUserId, pStock, pStockAmount, 'SELL');
-				
-				SET success = TRUE;
-				SET message = "";
-			END;
-		ELSE
-			BEGIN
-				SET message = "User already has a trigger set for this stock";
-				SET success = FALSE;
-			END;
-		END IF;
-	END;
-END$$
-
-CREATE PROCEDURE set_buy_amount(
-IN pUserId VARCHAR(25),
-IN pStock VARCHAR(3),
-IN pBuyAmount INTEGER,
-OUT success BOOLEAN,
-OUT message TEXT)
-
-BEGIN
-	DECLARE userStock INTEGER;
-	DECLARE userMoney INTEGER;
-	
-	SELECT money 
-	INTO userMoney
-	FROM user
-	WHERE userid = pUserId;
-	
-	SELECT amount
-	INTO userStock
-	FROM triggers
-	WHERE userid = pUserId AND stock = pStock AND triggerType = 'BUY';
-	
-	setAmount: BEGIN
-		IF userMoney IS NULL THEN
-			BEGIN
-				SET success = FALSE;
-				SET message = "User does not exist";
-				LEAVE setAmount;
-			END;
-		ELSEIF userMoney < pBuyAmount THEN 
-			BEGIN
-				SET success = FALSE;
-				SET message = "User has an insufficient amount of funds for this trigger";
-				LEAVE setAmount;
-			END;
-		END IF;
-		IF userStock IS NULL THEN
-			BEGIN
-				UPDATE user
-				SET money = money - pBuyAmount
-				WHERE userid = pUserId;
-				
-				INSERT INTO triggers (userid, stock, amount, triggerType)
-				VALUES (pUserId, pStock, pBuyAmount, 'BUY');
-
-				SET success = TRUE;
-				SET message = "";
-			END;
-		ELSE
-			BEGIN
-				SET message = "User already has a trigger set for this stock";
-				SET success = FALSE;
-			END;
-		END IF;
-	END;
-END$$
-
-CREATE PROCEDURE cancel_set_sell(
-IN pUserId VARCHAR(25),
-IN pStock VARCHAR(3),
-OUT success BOOLEAN,
-OUT message TEXT)
-
-BEGIN
-	DECLARE userStock INTEGER;
-	
-	SELECT amount
-	INTO userStock
-	FROM triggers
-	WHERE userid = pUserId AND stock = pStock AND triggerType = 'SELL';
-	
-	IF userStock IS NULL THEN
-		BEGIN
-			SET message = "User does not have a trigger set for this stock";
-			SET success = FALSE;
-		END;
-	ELSE
-		BEGIN
-			UPDATE stocks 
-			SET price = price + userStock
-			WHERE userid = pUserId AND stock = pStock;
-			
-			DELETE FROM triggers
-			WHERE userid = pUserId AND stock = pStock AND triggerType = 'SELL';
-			
-			SET success = TRUE;
-			SET message = "";
-		END;
-	END IF;
-END$$
-
-
-CREATE PROCEDURE cancel_set_buy(
-IN pUserId VARCHAR(25),
-IN pStock VARCHAR(3),
-OUT StockAmount INTEGER,
-OUT success BOOLEAN,
-OUT message TEXT)
-
-BEGIN
-	DECLARE userStock INTEGER;
-	
-	SELECT amount
-	INTO userStock
-	FROM triggers
-	WHERE userid = pUserId AND stock = pStock AND triggerType = 'BUY';
-	
-	IF userStock IS NULL THEN
-		BEGIN
-			SET message = "User does not have a trigger set for this stock";
-			SET success = FALSE;
-		END;
-	ELSE
-		BEGIN
-			UPDATE user 
-			SET money = money + userStock
-			WHERE userid = pUserId;
-			
-			DELETE FROM triggers
-			WHERE userid = pUserId AND stock = pStock AND triggerType = 'BUY';
-			
-			SET StockAmount = userStock;
-			SET success = TRUE;
-			SET message = "";
-		END;
-	END IF;
-END$$
-
-CREATE PROCEDURE set_trigger_amount(
-IN pUserId VARCHAR(25),
-IN pStock VARCHAR(3),
-IN pTriggerAmount INTEGER,
-IN pTriggerType VARCHAR(4),
-OUT stockAmount INTEGER,
-OUT success BOOLEAN,
-OUT message TEXT)
-
-BEGIN
-	DECLARE tAmount INTEGER;
-	DECLARE trigAmount INTEGER;
-	
-	SELECT amount, triggerAmount
-	INTO tAmount, trigAmount
-	FROM triggers
-	WHERE userid = pUserId AND stock = pStock AND triggerType = pTriggerType;
-	
-	IF tAmount IS NULL THEN
-		BEGIN
-			SET stockAmount = 0;
-			SET success = FALSE;
-			SET message = "User does not have a trigger set for this stock";
-		END;
-	ELSEIF trigAmount = pTriggerAmount THEN
-		BEGIN
-			SET stockAmount = 0;
-			SET success = FALSE;
-			SET message = "Trigger for this stock is already set";
-		END;
-	ELSE
-		BEGIN
-			UPDATE triggers
-			SET triggerAmount = pTriggerAmount
-			WHERE userid = pUserId AND stock = pStock AND triggerType = pTriggerType;
-			
-			SET stockAmount = tAmount;
-			SET success = TRUE;
-			SET message = "";
-		END;
-	END IF;
-END$$
-
 CREATE PROCEDURE sell_trigger(
 IN pUserId VARCHAR(25),
 IN pStock VARCHAR(3),
@@ -600,11 +429,9 @@ BEGIN
 	SET money = money + pStockAmount
 	WHERE userid = pUserId;
 	
-	UPDATE stock 
-	SET price = price + pStockLeftover;
-	
-	DELETE FROM triggers 
-	WHERE userid = pUserId AND stock = pStock AND triggerType = 'SELL';
+	UPDATE stocks
+	SET price = price + pStockLeftover
+	WHERE userid = pUserId AND stock = pStock;
 END$$
 
 CREATE PROCEDURE buy_trigger(
@@ -621,29 +448,6 @@ BEGIN
 	INSERT INTO stocks(userid, stock, price)
 	VALUES(pUserId, pStock, pStockAmount)
 	ON DUPLICATE KEY UPDATE price = price + pStockAmount;
-	
-	DELETE FROM triggers 
-	WHERE userid = pUserId AND stock = pStock AND triggerType = 'BUY';
-END$$
-
-CREATE PROCEDURE check_trigger_exists(
-IN pUserId Varchar(25),
-IN pStock VARCHAR(3),
-IN pStockAmount INTEGER,
-IN pTriggerAmount INTEGER,
-IN pTriggerType VARCHAR(4),
-OUT success BOOLEAN)
-
-BEGIN
-	DECLARE ifExists INTEGER;
-	
-	SELECT EXISTS (
-		SELECT 1 
-		FROM triggers 
-		WHERE userid = pUserId AND stock = pStock AND triggerType = pTriggerType 
-		AND amount = pStockAmount AND triggerAmount = pTriggerAmount;
-	) 
-	INTO success;
 END$$
 
 CREATE EVENT clear_expired_transactions

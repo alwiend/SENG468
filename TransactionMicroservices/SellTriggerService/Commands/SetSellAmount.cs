@@ -22,7 +22,7 @@ namespace SellTriggerService
             string result = "";
             try
             {
-                // Check user account for stock, notify if insufficient
+                // Check user account for cash, notify if insufficient funds
                 MySQL db = new MySQL();
                 result = await db.PerformTransaction(SetAmount, command).ConfigureAwait(false);
             }
@@ -40,27 +40,57 @@ namespace SellTriggerService
             {
                 cmd.Connection = cnn;
                 cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandText = "set_sell_amount";
-
-                cmd.Parameters.AddWithValue("@pUserId", command.username);
-                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
-                cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
-                cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
-                cmd.Parameters.AddWithValue("@pStockAmount", (int)(command.funds * 100));
-                cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Input;
-                cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
-                cmd.Parameters["@success"].Direction = ParameterDirection.Output;
-                cmd.Parameters.Add(new MySqlParameter("@message", MySqlDbType.Text));
-                cmd.Parameters["@message"].Direction = ParameterDirection.Output;
-
-                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-
-                if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
+                var msg = await CheckUserStock(cmd, command).ConfigureAwait(false);
+                if (msg != null)
                 {
-                    return Convert.ToString(cmd.Parameters["@message"].Value);
+                    return await LogErrorEvent(command, msg).ConfigureAwait(false);
                 }
-                return $"Trigger created successfully for stock {command.stockSymbol}";
+                cmd.Parameters.Clear();
+                await HoldUserStock(cmd, command).ConfigureAwait(false);
             }
+            await LogTransactionEvent(command, "remove").ConfigureAwait(false);
+            return $"Sell amount set successfully for stock {command.stockSymbol}";
+        }
+
+        async Task<string> CheckUserStock(MySqlCommand cmd, UserCommandType command)
+        {
+            cmd.CommandText = "get_user_stock";
+
+            cmd.Parameters.AddWithValue("@pUserId", command.username);
+            cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+            cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
+            cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
+            cmd.Parameters.Add("@pStockAmount", DbType.Int32);
+            cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Output;
+
+            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+            if (cmd.Parameters["@pStockAmount"].Value == DBNull.Value)
+            {
+                return await LogErrorEvent(command, "User does not exist or does not have this stock").ConfigureAwait(false); ;
+            }
+            if (Convert.ToInt32(cmd.Parameters["@pStockAmount"].Value) < command.funds)
+            {
+                return await LogErrorEvent(command, "Insufficient user stocks").ConfigureAwait(false); ;
+            }
+
+            command.fundsSpecified = false;
+            return await SellTriggerTimer.StartOrUpdateTimer(command).ConfigureAwait(false); ;
+        }
+
+        async Task<string> HoldUserStock(MySqlCommand cmd, UserCommandType command)
+        {
+            cmd.CommandText = "hold_user_stock";
+
+            cmd.Parameters.AddWithValue("@pUserId", command.username);
+            cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+            cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
+            cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
+            cmd.Parameters.AddWithValue("@pStockAmount", (int)command.funds);
+            cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Input;
+
+            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            return null;
         }
     }
 }

@@ -40,28 +40,53 @@ namespace BuyTriggerService
             {
                 cmd.Connection = cnn;
                 cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandText = "set_buy_amount";
-
-                cmd.Parameters.AddWithValue("@pUserId", command.username);
-                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
-                cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
-                cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
-                cmd.Parameters.AddWithValue("@pBuyAmount", (int)(command.funds * 100));
-                cmd.Parameters["@pBuyAmount"].Direction = ParameterDirection.Input;
-                cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
-                cmd.Parameters["@success"].Direction = ParameterDirection.Output;
-                cmd.Parameters.Add(new MySqlParameter("@message", MySqlDbType.Text));
-                cmd.Parameters["@message"].Direction = ParameterDirection.Output;
-
-                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-
-                if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
+                var msg = await CheckMoney(cmd, command).ConfigureAwait(false);
+                if (msg != null)
                 {
-                    return Convert.ToString(cmd.Parameters["@message"].Value);
+                    return await LogErrorEvent(command, msg).ConfigureAwait(false);
                 }
-                await LogTransactionEvent(command, "remove").ConfigureAwait(false);
-                return $"Trigger created successfully for stock {command.stockSymbol}";
+                cmd.Parameters.Clear();
+                await SetUserMoney(cmd, command).ConfigureAwait(false);
             }
+            await LogTransactionEvent(command, "remove").ConfigureAwait(false);
+            return $"Buy amount set successfully for stock {command.stockSymbol}";
+        }
+
+        async Task<string> CheckMoney(MySqlCommand cmd, UserCommandType command)
+        {
+            cmd.CommandText = "get_user_money";
+
+            cmd.Parameters.AddWithValue("@pUserId", command.username);
+            cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+            cmd.Parameters.Add("@pMoney", DbType.Int32);
+            cmd.Parameters["@pMoney"].Direction = ParameterDirection.Output;
+
+            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+            if (cmd.Parameters["@pMoney"].Value == DBNull.Value)
+            {
+                return await LogErrorEvent(command, "User does not exist").ConfigureAwait(false); ;
+            }
+            if (Convert.ToInt32(cmd.Parameters["@pMoney"].Value) < command.funds)
+            {
+                return await LogErrorEvent(command, "Insufficient user funds").ConfigureAwait(false); ;
+            }
+
+            command.fundsSpecified = false;
+            return await BuyTriggerTimer.StartOrUpdateTimer(command).ConfigureAwait(false); ;
+        }
+
+        async Task<string> SetUserMoney(MySqlCommand cmd, UserCommandType command)
+        {
+            cmd.CommandText = "hold_user_money";
+
+            cmd.Parameters.AddWithValue("@pUserId", command.username);
+            cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+            cmd.Parameters.AddWithValue("@pMoney", (int)command.funds);
+            cmd.Parameters["@pMoney"].Direction = ParameterDirection.Input;
+
+            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            return null;
         }
     }
 }

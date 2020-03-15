@@ -104,20 +104,29 @@ namespace WorkloadGenerator
 
         async Task PostToWebServer(string command)
         {
+            var start = DateTime.Now;
             try
             {
                 string URI = "http://localhost:8080";
-
                 var formContent = new FormUrlEncodedContent(new[]
                 {
                     new KeyValuePair<string, string>("Command", command)
                 });
                 var result = await httpClient.PostAsync(URI, formContent);
             }
+            catch (TaskCanceledException ex)
+            {
+                Console.WriteLine($"-------------------Command: {command}-------------------");
+                Console.WriteLine($"Cancel requested: {ex.CancellationToken.IsCancellationRequested}");
+                Console.WriteLine($"Took {(DateTime.Now - start).TotalSeconds} seconds to cancel");
+                Console.WriteLine(ex);
+                Console.WriteLine("--------------------------------------------------------");
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"-------------------Command: {command}-------------------");
-                Console.WriteLine(ex.StackTrace);
+                Console.WriteLine($"Took {(DateTime.Now - start).TotalSeconds} seconds to throw exception");
+                Console.WriteLine(ex);
                 Console.WriteLine("--------------------------------------------------------");
             }
         }
