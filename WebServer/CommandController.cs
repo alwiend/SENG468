@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using Constants;
 using Microsoft.AspNetCore.Mvc;
 using Utilities;
 
@@ -53,7 +50,7 @@ namespace WebServer
 
         private async Task<IActionResult> HandleTransaction(string Command)
         { 
-            string Result = "";
+            string Result = null;
             if (Command == null || Command.Length == 0)
             {
                 Result = "Please enter a command";
@@ -74,34 +71,53 @@ namespace WebServer
                 command = (commandType)ct,
                 transactionNum = _globalTransaction.Count.ToString()
             };
-
+            ServiceConstant con = null;
             switch (userCommand.command)
             {
                 case commandType.QUOTE:
-                    if (args.Length == 3)
-                    {
-                        userCommand.stockSymbol = args[2];
-                        userCommand.username = args[1];
-                        var quote = await GetServiceResult(Service.QUOTE_SERVICE, userCommand);
-                        Result = $"{Convert.ToDecimal(quote) / 100m}";
-                    }
-                    else
-                    {
-                        Result = "Usage: QUOTE,userid,stock";
-                    }
+                    con = Service.QUOTE_SERVICE;
                     break;
                 case commandType.ADD:
-                    if (args.Length == 3)
-                    {
-                        userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[2]) * 100;
-                        userCommand.username = args[1];
-                        Result = await GetServiceResult(Service.ADD_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: ADD,userid,money";
-                    }
+                    con = Service.ADD_SERVICE;
+                    break;
+                case commandType.BUY:
+                    con = Service.BUY_SERVICE;
+                    break;
+                case commandType.COMMIT_BUY:
+                    con = Service.BUY_COMMIT_SERVICE;
+                    break;
+                case commandType.CANCEL_BUY:
+                    con = Service.BUY_CANCEL_SERVICE;
+                    break;
+                case commandType.SELL:
+                    con = Service.SELL_SERVICE;
+                    break;
+                case commandType.COMMIT_SELL:
+                    con = Service.SELL_COMMIT_SERVICE;
+                    break;
+                case commandType.CANCEL_SELL:
+                    con = Service.SELL_CANCEL_SERVICE;
+                    break;
+                case commandType.SET_BUY_AMOUNT:
+                    con = Service.BUY_TRIGGER_AMOUNT_SERVICE;
+                    break;
+                case commandType.CANCEL_SET_BUY:
+                    con = Service.BUY_TRIGGER_CANCEL_SERVICE;
+                    break;
+                case commandType.SET_BUY_TRIGGER:
+                    con = Service.BUY_TRIGGER_SET_SERVICE;
+                    break;
+                case commandType.SET_SELL_AMOUNT:
+                    con = Service.SELL_TRIGGER_AMOUNT_SERVICE;
+                    break;
+                case commandType.SET_SELL_TRIGGER:
+                    con = Service.SELL_TRIGGER_SET_SERVICE;
+                    break;
+                case commandType.CANCEL_SET_SELL:
+                    con = Service.SELL_TRIGGER_CANCEL_SERVICE;
+                    break;
+                case commandType.DISPLAY_SUMMARY:
+                    con = Service.DISPLAY_SUMMARY_SERVICE;
                     break;
                 case commandType.DUMPLOG:
                     if (args.Length == 2)
@@ -119,174 +135,22 @@ namespace WebServer
                     {
                         Result = "Usage: DUMPLOG, userid, filename\nDUMPLOG filename";
                     }
-                    break;
-                case commandType.BUY:
-                    if (args.Length == 4)
-                    {
-                        userCommand.username = args[1];
-                        userCommand.stockSymbol = args[2];
-                        userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]) * 100;
-                        Result = await GetServiceResult(Service.BUY_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: BUY,userid,stock,amount";
-                    }
-                    break;
-                case commandType.COMMIT_BUY:
-                    if (args.Length == 2)
-                    {
-                        userCommand.username = args[1];
-                        Result = await GetServiceResult(Service.BUY_COMMIT_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: COMMIT_BUY,userid";
-                    }
-                    break;
-                case commandType.CANCEL_BUY:
-                    if (args.Length == 2)
-                    {
-                        userCommand.username = args[1];
-                        Result = await GetServiceResult(Service.BUY_CANCEL_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: CANCEL_BUY,userid";
-                    }
-                    break;
-                case commandType.SELL:
-                    if (args.Length == 4)
-                    {
-                        userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]) * 100;
-                        userCommand.username = args[1];
-                        userCommand.stockSymbol = args[2];
-                        Result = await GetServiceResult(Service.SELL_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: SELL,userid,StockSymbol,amount";
-                    }
-                    break;
-                case commandType.COMMIT_SELL:
-                    if (args.Length == 2)
-                    {
-                        userCommand.username = args[1];
-                        Result = await GetServiceResult(Service.SELL_COMMIT_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: COMMIT_SELL,userid";
-                    }
-                    break;
-                case commandType.CANCEL_SELL:
-                    if (args.Length == 2)
-                    {
-                        userCommand.username = args[1];
-                        Result = await GetServiceResult(Service.SELL_CANCEL_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: CANCEL_SELL,userid";
-                    }
-                    break;
-                case commandType.SET_BUY_AMOUNT:
-                    if (args.Length == 4)
-                    {
-                        userCommand.username = args[1];
-                        userCommand.stockSymbol = args[2];
-                        userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]) * 100;
-                        Result = await GetServiceResult(Service.BUY_TRIGGER_AMOUNT_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: SET_BUY_AMOUNT,jsmith,ABC,50.00";
-                    }
-                    break;
-                case commandType.CANCEL_SET_BUY:
-                    if (args.Length == 3)
-                    {
-                        userCommand.username = args[1];
-                        userCommand.stockSymbol = args[2];
-                        Result = await GetServiceResult(Service.BUY_TRIGGER_CANCEL_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: CANCEL_SET_BUY,jsmith,ABC";
-                    }
-                    break;
-                case commandType.SET_BUY_TRIGGER:
-                    if (args.Length == 4)
-                    {
-                        userCommand.username = args[1];
-                        userCommand.stockSymbol = args[2];
-                        userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]) * 100;
-                        Result = await GetServiceResult(Service.BUY_TRIGGER_SET_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: SET_BUY_TRIGGER,jsmith,ABC,20.00";
-                    }
-                    break;
-                case commandType.SET_SELL_AMOUNT:
-                    if (args.Length == 4)
-                    {
-                        userCommand.username = args[1];
-                        userCommand.stockSymbol = args[2];
-                        userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]) * 100;
-                        Result = await GetServiceResult(Service.SELL_TRIGGER_AMOUNT_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: SET_SELL_AMOUNT,jsmith,ABC,50.00";
-                    }
-                    break;
-                case commandType.SET_SELL_TRIGGER:
-                    if (args.Length == 4)
-                    {
-                        userCommand.username = args[1];
-                        userCommand.stockSymbol = args[2];
-                        userCommand.fundsSpecified = true;
-                        userCommand.funds = Convert.ToDecimal(args[3]) * 100;
-                        Result = await GetServiceResult(Service.SELL_TRIGGER_SET_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: SET_SELL_TRIGGER,jsmith,ABC,20.00";
-                    }
-                    break;
-                case commandType.CANCEL_SET_SELL:
-                    if (args.Length == 3)
-                    {
-                        userCommand.username = args[1];
-                        userCommand.stockSymbol = args[2];
-                        Result = await GetServiceResult(Service.SELL_TRIGGER_CANCEL_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: CANCEL_SET_SELL,jsmith,ABC";
-                    }
-                    break;
-                case commandType.DISPLAY_SUMMARY:
-                    if (args.Length == 2)
-                    {
-                        userCommand.username = args[1];
-                        Result = await GetServiceResult(Service.DISPLAY_SUMMARY_SERVICE, userCommand);
-                    }
-                    else
-                    {
-                        Result = "Usage: DISPLAY_SUMMARY,userid";
-                    }
-                    break;
+                    return Ok();
                 default:
-                    Result = "Invalid Command";
-                    break;
+                    return BadRequest("Invalid Command");
             }
+            if (con != null)
+            {
+                if (con.Validate(args, ref userCommand, out string error))
+                {
+                    Result = await GetServiceResult(con, userCommand).ConfigureAwait(false);
+                }
+                else
+                {
+                    Result = error;
+                }
+            }
+            
             if (Result == null)
             {
                 return StatusCode(503, "Service unavailable");

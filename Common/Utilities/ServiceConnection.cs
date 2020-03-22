@@ -1,16 +1,12 @@
-﻿using Constants;
-using MessagePack;
+﻿using MessagePack;
 using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml.Serialization;
 
 namespace Utilities
 {
@@ -19,7 +15,6 @@ namespace Utilities
         readonly IPEndPoint localEndPoint;
         TcpClient client;
         private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();
-        string name;
         MessagePackStreamReader streamReader;
 
         public bool Connected
@@ -38,7 +33,6 @@ namespace Utilities
 #endif
         // : this(IPAddress.loopback, sc.Port)
         {
-            name = sc.ServiceName;
         }
 
         public ServiceConnection(IPAddress addr, int port)

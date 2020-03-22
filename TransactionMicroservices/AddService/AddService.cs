@@ -1,8 +1,8 @@
 ﻿// Connects to Quote Server and returns quote
 using System;
 using System.Data;
+using System.Threading;
 using System.Threading.Tasks;
-using Constants;
 using Database;
 using MySql.Data.MySqlClient;
 using Utilities;
@@ -14,6 +14,7 @@ namespace TransactionServer.Services
     {
         public static async Task Main(string[] args)
         {
+            ThreadPool.SetMinThreads(Environment.ProcessorCount * 15, Environment.ProcessorCount * 10);
             var add_service = new AddService(Service.ADD_SERVICE, new AuditWriter());
             await add_service.StartService().ConfigureAwait(false);
             add_service.Dispose();

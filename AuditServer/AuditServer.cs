@@ -1,21 +1,30 @@
-﻿using Constants;
-using MessagePack;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
+using Utilities;
 
 namespace AuditServer
 {
     public class AuditServer : IDisposable
 	{
 		private static readonly ConcurrentStack<object> Log = new ConcurrentStack<object>();
+
+		public async Task DisplayLogs()
+		{
+			while(!_tokenSource.IsCancellationRequested)
+			{
+				Console.WriteLine($"Logs Received: {Log.Count}");
+				
+				await Task.Delay(5000).ConfigureAwait(false);
+			}
+		}
+
 		private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
 		private readonly TcpListener listener;
@@ -48,17 +57,18 @@ namespace AuditServer
 		public static void AddRecord(object record)
 		{
 			Log.Push(record);
-			if (Log.Count % 10000 == 0)
-			{
-				Console.WriteLine($"Logs Received: {Log.Count}");
-			}
+		}
+
+		public static void AddBulkRecords(object[] records)
+		{
+			Log.PushRange(records);
 		}
 
 		public static void DumpLog(string filename)
 		{
 			LogType logs = new LogType
 			{
-				Items = Log.ToArray()
+				Items = Log.Reverse().ToArray()
 			};
 
 			var path = Path.Combine(Directory.GetCurrentDirectory(), filename);

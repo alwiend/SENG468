@@ -15,8 +15,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Database", "Database\Databa
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Utilities", "..\Common\Utilities\Utilities.csproj", "{DA8ED50D-D5F9-41C0-AA04-E813EBED9A3F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Constants", "..\Common\Constants\Constants.csproj", "{B14F995C-AC42-4A3A-B425-B9D5777248A5}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DisplaySummaryService", "DisplaySummaryService\DisplaySummaryService.csproj", "{38EB9E33-E66A-4470-A623-C4E93BA1162D}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SellService", "SellService\SellService.csproj", "{74DA22DA-FA36-462D-97F7-7E9F071AEF70}"
@@ -30,7 +28,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TransactionServer", "ProjectDebugger\TransactionServer.csproj", "{3E202B95-2786-480D-971B-3A898A2F18A5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TransactionServer", "ProjectDebugger\TransactionServer.csproj", "{3E202B95-2786-480D-971B-3A898A2F18A5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -62,10 +60,6 @@ Global
 		{DA8ED50D-D5F9-41C0-AA04-E813EBED9A3F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DA8ED50D-D5F9-41C0-AA04-E813EBED9A3F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DA8ED50D-D5F9-41C0-AA04-E813EBED9A3F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B14F995C-AC42-4A3A-B425-B9D5777248A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B14F995C-AC42-4A3A-B425-B9D5777248A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B14F995C-AC42-4A3A-B425-B9D5777248A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B14F995C-AC42-4A3A-B425-B9D5777248A5}.Release|Any CPU.Build.0 = Release|Any CPU
 		{38EB9E33-E66A-4470-A623-C4E93BA1162D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{38EB9E33-E66A-4470-A623-C4E93BA1162D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{38EB9E33-E66A-4470-A623-C4E93BA1162D}.Release|Any CPU.ActiveCfg = Release|Any CPU

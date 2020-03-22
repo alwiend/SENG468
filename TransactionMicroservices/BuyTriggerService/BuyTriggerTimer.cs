@@ -7,7 +7,6 @@ using MySql.Data.MySqlClient;
 using System.Data;
 using System.Collections.Concurrent;
 using System.Linq;
-using Constants;
 
 namespace TransactionServer.Services.BuyTrigger
 {

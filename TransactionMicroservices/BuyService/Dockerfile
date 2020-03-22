@@ -6,7 +6,6 @@ COPY TransactionMicroservices/BuyService/*.csproj ./TransactionMicroservices/Buy
 COPY TransactionMicroservices/BaseService/*.csproj ./TransactionMicroservices/BaseService/
 COPY TransactionMicroservices/Database/*.csproj ./TransactionMicroservices/Database/
 COPY Common/Utilities/*.csproj ./Common/Utilities/
-COPY Common/Constants/*.csproj ./Common/Constants/
 RUN dotnet restore ./TransactionMicroservices/BuyService
 
 # Copy everything else and build
@@ -14,7 +13,6 @@ COPY TransactionMicroservices/BuyService/ ./TransactionMicroservices/BuyService/
 COPY TransactionMicroservices/BaseService/ ./TransactionMicroservices/BaseService/
 COPY TransactionMicroservices/Database/ ./TransactionMicroservices/Database/
 COPY Common/Utilities/ ./Common/Utilities/
-COPY Common/Constants/ ./Common/Constants/
 RUN dotnet publish -c Release -o out ./TransactionMicroservices/BuyService
 
 # Build runtime image

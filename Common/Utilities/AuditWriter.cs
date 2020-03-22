@@ -1,12 +1,10 @@
 ﻿using MessagePack;
 using System;
 using System.Collections.Concurrent;
-using System.IO;
+using Utilities;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -96,9 +94,9 @@ namespace Utilities
                     Console.WriteLine("Connecting to Audit Server");
                     client = new TcpClient(AddressFamily.InterNetwork);
 #if DEBUG
-                    await client.ConnectAsync(IPAddress.Loopback, Constants.Server.AUDIT_SERVER.Port).ConfigureAwait(false);
+                    await client.ConnectAsync(IPAddress.Loopback, Server.AUDIT_SERVER.Port).ConfigureAwait(false);
 #else
-                    await client.ConnectAsync(Constants.Server.AUDIT_SERVER.ServiceName, Constants.Server.AUDIT_SERVER.Port).ConfigureAwait(false);
+                    await client.ConnectAsync(Server.AUDIT_SERVER.ServiceName, Server.AUDIT_SERVER.Port).ConfigureAwait(false);
 #endif
                     if (!Connected)
                         await Task.Delay(5000);

@@ -1,19 +1,17 @@
-﻿using Constants;
-using MessagePack;
+﻿using MessagePack;
 using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Utilities;
 
 namespace AuditServer
 {
     public class AuditClient : IDisposable
     {
-        TcpClient client;
+        readonly TcpClient client;
         private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
         public AuditClient(TcpClient c)
@@ -30,7 +28,7 @@ namespace AuditServer
         public async Task Process()
         {
             UserCommandType command;
-            LogType log_in = null;
+            LogType log_in;
             ReadOnlySequence<byte>? msgpack;
             using (var streamReader = new MessagePackStreamReader(client.GetStream()))
             {
@@ -54,10 +52,10 @@ namespace AuditServer
                             continue;
                         }
 
+                        AuditServer.AddBulkRecords(log_in.Items);
                         for (int i = log_in.Items.Length - 1; i >= 0; i--)
                         {
                             var record = log_in.Items[i];
-                            AuditServer.AddRecord(record);
                             if (record.GetType() == typeof(UserCommandType))
                             {
                                 command = (UserCommandType)record;

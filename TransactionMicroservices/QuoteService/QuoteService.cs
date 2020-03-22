@@ -1,7 +1,6 @@
 ﻿// Connects to Quote Server and returns quote
 using System;
 using System.Threading.Tasks;
-using Constants;
 using Utilities;
 using StackExchange.Redis;
 using System.Threading;
@@ -14,13 +13,13 @@ namespace TransactionServer.Services
     {
         public static async Task Main(string[] args)
         {
-            ThreadPool.SetMinThreads(Environment.ProcessorCount*15, Environment.ProcessorCount*10);
+            ThreadPool.SetMinThreads(Environment.ProcessorCount * 15, Environment.ProcessorCount * 10);
             try
             {
 #if DEBUG
                 //var mult = await ConnectionMultiplexer.ConnectAsync("localhost:6379").ConfigureAwait(false);
 #else
-                var mult = await ConnectionMultiplexer.ConnectAsync("redis_quote_cache:6379").ConfigureAwait(false);
+                //var mult = await ConnectionMultiplexer.ConnectAsync("redis_quote_cache:6379").ConfigureAwait(false);
 #endif
                 var quote_service = new QuoteService(Service.QUOTE_SERVICE, new AuditWriter());
                 await quote_service.StartService();
@@ -32,7 +31,7 @@ namespace TransactionServer.Services
             }
         }
 
-        private static QuoteCache<string> _quoteCache = new QuoteCache<string>();
+        private static readonly QuoteCache<string> _quoteCache = new QuoteCache<string>();
 
         public QuoteService(ServiceConstant sc, IAuditWriter aw, ConnectionMultiplexer cm) : base(sc, aw, cm)
         {
@@ -41,24 +40,18 @@ namespace TransactionServer.Services
         public QuoteService(ServiceConstant sc, IAuditWriter aw) : base(sc, aw)
         {
         }
-        
+
         protected override async Task<string> DataReceived(UserCommandType command)
         {
             try
             {
                 //IDatabase redisConn = Muxer.GetDatabase(1);
-                var result = await _quoteCache.GetOrCreate(command.stockSymbol, () => GetQuote(command));
-                if (result != null)
+                var result = await _quoteCache.GetOrCreate(command.stockSymbol,
+                    () => GetQuote(command),
+                    v => (Unix.TimeStamp - Convert.ToInt64(v.Split(",")[1])) < 60000);
+                if (command.command != commandType.SET_BUY_TRIGGER && command.command != commandType.SET_SELL_TRIGGER)
                 {
-                    string[] args = result.Split(",");
-                    if ((Unix.TimeStamp - Convert.ToInt64(args[1])) < 60000)
-                    {
-                        if (command.command == commandType.SET_BUY_TRIGGER || command.command == commandType.SET_SELL_TRIGGER)
-                        {
-                            return result;
-                        }
-                        return args[0];
-                    }
+                    return result.Split(",")[0];
                 }
                 return result;
             }

@@ -1,8 +1,6 @@
 ﻿using System;
 
-using Constants;
 using Utilities;
-using Database;
 using System.Threading.Tasks;
 
 namespace TransactionServer.Services.BuyTrigger

@@ -12,12 +12,13 @@ namespace TransactionServer.Services
     {
         public static async Task Main(string[] args)
         {
+            ThreadPool.SetMinThreads(Environment.ProcessorCount * 15, Environment.ProcessorCount * 10);
             var _auditor = new AuditWriter();
             var services = new List<BaseService>()
             {
-                new SetBuyAmount(Constants.Service.BUY_TRIGGER_AMOUNT_SERVICE, _auditor),
-                new CancelSetBuy(Constants.Service.BUY_TRIGGER_CANCEL_SERVICE, _auditor),
-                new SetBuyTrigger(Constants.Service.BUY_TRIGGER_SET_SERVICE, _auditor)
+                new SetBuyAmount(Service.BUY_TRIGGER_AMOUNT_SERVICE, _auditor),
+                new CancelSetBuy(Service.BUY_TRIGGER_CANCEL_SERVICE, _auditor),
+                new SetBuyTrigger(Service.BUY_TRIGGER_SET_SERVICE, _auditor)
             };
 
             var tasks = services.Select(service => service.StartService());

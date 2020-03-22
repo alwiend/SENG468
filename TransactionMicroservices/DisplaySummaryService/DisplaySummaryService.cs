@@ -1,11 +1,11 @@
 ﻿using System;
-using Constants;
 using Utilities;
 using Database;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 using System.Data;
 using System.Text;
+using System.Threading;
 
 namespace TransactionServer.Services
 {
@@ -13,6 +13,7 @@ namespace TransactionServer.Services
     {
         public static async Task Main(string[] args)
         {
+            ThreadPool.SetMinThreads(Environment.ProcessorCount * 15, Environment.ProcessorCount * 10);
             var display_summary_service = new DisplaySummaryService(Service.DISPLAY_SUMMARY_SERVICE, new AuditWriter());
             await display_summary_service.StartService().ConfigureAwait(false);
             display_summary_service.Dispose();
