@@ -1,21 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
 using System.Threading.Tasks;
-using System.Xml.Serialization;
-using Constants;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.Extensions.Logging;
 using Utilities;
 
 namespace WebServer.Pages
 {
-    [IgnoreAntiforgeryToken(Order = 1001)]
     public class IndexModel : PageModel
     {
         private readonly GlobalTransaction _globalTransaction;
@@ -31,11 +21,6 @@ namespace WebServer.Pages
         {
             _globalTransaction = gt;
             _writer = aw;
-        }
-
-        public void OnGet()
-        {
-
         }
 
         public async Task<IActionResult> OnPostAsync()
@@ -92,13 +77,13 @@ namespace WebServer.Pages
                     if (args.Length == 2)
                     {
                         userCommand.filename = args[1];
-                        await _writer.WriteRecord(userCommand);
+                        _writer.WriteRecord(userCommand);
                     } 
                     else if (args.Length == 3)
                     {
                         userCommand.username = args[1];
                         userCommand.filename = args[2];
-                        await _writer.WriteRecord(userCommand);
+                        _writer.WriteRecord(userCommand);
                     }
                     else
                     {
@@ -274,22 +259,22 @@ namespace WebServer.Pages
          */
         async Task<string> GetServiceResult(ServiceConstant sc, UserCommandType userCommand)
         {
-            _writer.WriteRecord(userCommand).ConfigureAwait(false);
+            _writer.WriteRecord(userCommand);
 
             try
             {
                 //ServiceConnection conn = new ServiceConnection(IPAddress.Loopback, sc.Port);
-                ServiceConnection conn = new ServiceConnection(sc);
-                return await conn.Send(userCommand, true).ConfigureAwait(false);
-                //return $"WebServer: {userCommand.command}";
+                //ServiceConnection conn = new ServiceConnection(sc);
+                //return await conn.Send(userCommand, true).ConfigureAwait(false);
+                return $"WebServer: {userCommand.command}";
             } catch(Exception ex)
             {
-                await LogDebugEvent(userCommand, ex.Message);
+                LogDebugEvent(userCommand, ex.Message);
                 return "Service not available";
             }
         }
 
-        async Task LogDebugEvent(UserCommandType command, string err)
+        void LogDebugEvent(UserCommandType command, string err)
         {
             DebugType bug = new DebugType()
             {
@@ -299,7 +284,7 @@ namespace WebServer.Pages
                 command = command.command,
                 debugMessage = err
             };
-            _writer.WriteRecord(bug).ConfigureAwait(false);
+            _writer.WriteRecord(bug);
         }
     }
 }

@@ -1,16 +1,17 @@
-﻿using System;
-using System.Threading;
-using Utilities;
-using Constants;
+﻿using Utilities;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using TransactionServer.Services.Sell;
+using System.Threading;
+using System;
 
-namespace SellService
+namespace TransactionServer.Services
 {
-    class Program
+    public class SellService
     {
-        static async Task Main(string[] args)
+        public static async Task Main(string[] args)
         {
+            ThreadPool.SetMinThreads(Environment.ProcessorCount * 15, Environment.ProcessorCount * 10);
             var _auditor = new AuditWriter();
             var sell_service = new SellCommand(Service.SELL_SERVICE, _auditor);
             var sell_commit_service = new SellCommitCommand(Service.SELL_COMMIT_SERVICE, _auditor);

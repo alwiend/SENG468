@@ -1,67 +1,110 @@
-﻿using System;
-using System.IO;
+﻿using MessagePack;
+using System;
+using System.Collections.Concurrent;
+using Utilities;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml.Serialization;
 
 namespace Utilities
 {
     public class AuditWriter : IAuditWriter
     {
+        readonly ConcurrentStack<object> logs = new ConcurrentStack<object>();
+        private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();
+        private TcpClient client = null;
+        public bool Connected
+        {
+            get
+            {
+                return client != null && client.Connected;
+            }
+        }
+
+        public AuditWriter()
+        {
+            Task.Run(KeepConnected);
+        }
+
+        public void Dispose()
+        {
+            _tokenSource.Cancel();
+            client.Client.Shutdown(SocketShutdown.Both);
+            client.GetStream().Close();
+            client.Close();
+            client.Dispose();
+        }
+
         /*
          * @param record The event to pass to the Audit server
          */
-        public async Task WriteRecord(object record)
+        public void WriteRecord(object record)
         {
+            if (!Connected || _tokenSource.Token.IsCancellationRequested)
+            {
+                logs.Push(record);
+                return;
+            }
+            //logs.Push(record);
+            _ = WriteToServer(new object[1] { record });
+        }
+
+        private async Task WriteToServer(object[] records)
+        {
+            LogType log = new LogType
+            {
+                Items = records
+            };
+
             try
             {
-                TcpClient client = new TcpClient(AddressFamily.InterNetwork);
-                await client.ConnectAsync(Constants.Server.AUDIT_SERVER.ServiceName, Constants.Server.AUDIT_SERVER.Port).ConfigureAwait(false);
-
-                try
-                {
-                    LogType log = new LogType
-                    {
-                        Items = new object[] { record }
-                    };
-
-                    XmlSerializer serializer = new XmlSerializer(typeof(LogType));
-                    using (StreamWriter client_out = new StreamWriter(client.GetStream()))
-                    {
-                        serializer.Serialize(client_out, log);
-                        await client_out.FlushAsync().ConfigureAwait(false);
-                        // Shutdown Clientside sending to signal end of stream
-                        client.Client.Shutdown(SocketShutdown.Both);
-                    }
-                }
-
-                // Manage of Socket's Exceptions 
-                catch (ArgumentNullException ane)
-                {
-
-                    Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
-                }
-
-                catch (SocketException se)
-                {
-
-                    Console.WriteLine("SocketException : {0}", se.ToString());
-                }
-
-                catch (Exception e)
-                {
-                    Console.WriteLine("Unexpected exception : {0}", e.ToString());
-                }
+                await MessagePackSerializer.Typeless.SerializeAsync(client.GetStream(), log);
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("Audit server connection failed");
+                // Audit Server connection broken
+                // Save logs for reconnect
+                logs.PushRange(records);
                 client.Close();
                 client.Dispose();
             }
-            catch (Exception ex)
+        }
+
+        public async Task KeepConnected()
+        {
+            while (true)
             {
-                Console.WriteLine("Failed to connect: {0}", ex.Message);
+                try
+                {
+                    if (Connected)
+                    {
+                        Console.WriteLine("Audit Server Connection Healthy");
+                        if (logs.Any())
+                        {
+                            var records = new object[logs.Count];
+                            logs.TryPopRange(records, 0, records.Length);
+                            _ = WriteToServer(records);
+                        }
+                        await Task.Delay(30000);
+                        continue;
+                    }
+                    Console.WriteLine("Connecting to Audit Server");
+                    client = new TcpClient(AddressFamily.InterNetwork);
+#if DEBUG
+                    await client.ConnectAsync(IPAddress.Loopback, Server.AUDIT_SERVER.Port).ConfigureAwait(false);
+#else
+                    await client.ConnectAsync(Server.AUDIT_SERVER.ServiceName, Server.AUDIT_SERVER.Port).ConfigureAwait(false);
+#endif
+                    if (!Connected)
+                        await Task.Delay(5000);
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("Connection Failed");
+                }
             }
         }
     }

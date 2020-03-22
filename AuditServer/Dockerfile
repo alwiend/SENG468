@@ -4,13 +4,11 @@ WORKDIR /app
 # Copy csproj and restore as distinct layers
 COPY AuditServer/*.csproj ./AuditServer/
 COPY Common/Utilities/*.csproj ./Common/Utilities/
-COPY Common/Constants/*.csproj ./Common/Constants/
 RUN dotnet restore ./AuditServer
 
 # Copy everything else and build
 COPY AuditServer/ ./AuditServer
 COPY Common/Utilities/ ./Common/Utilities
-COPY Common/Constants/ ./Common/Constants
 RUN dotnet publish -c Release -o out ./AuditServer
 
 # Build runtime image

@@ -8,6 +8,9 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
+using MessagePack;
+using MessagePack.Formatters;
+using System.Collections.Generic;
 using System.Xml.Serialization;
 
 // 
@@ -21,6 +24,7 @@ using System.Xml.Serialization;
 [System.Diagnostics.DebuggerStepThroughAttribute()]
 [System.ComponentModel.DesignerCategoryAttribute("code")]
 [System.Xml.Serialization.XmlRootAttribute("log", Namespace="", IsNullable=false)]
+[MessagePackObject]
 public partial class LogType {
     
     private object[] itemsField;
@@ -32,6 +36,7 @@ public partial class LogType {
     [System.Xml.Serialization.XmlElementAttribute("quoteServer", typeof(QuoteServerType), Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
     [System.Xml.Serialization.XmlElementAttribute("systemEvent", typeof(SystemEventType), Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
     [System.Xml.Serialization.XmlElementAttribute("userCommand", typeof(UserCommandType), Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(0)]
     public object[] Items {
         get {
             return this.itemsField;
@@ -47,6 +52,7 @@ public partial class LogType {
 [System.SerializableAttribute()]
 [System.Diagnostics.DebuggerStepThroughAttribute()]
 [System.ComponentModel.DesignerCategoryAttribute("code")]
+[MessagePackObject]
 public partial class AccountTransactionType {
 
     private string timestampField;
@@ -63,6 +69,7 @@ public partial class AccountTransactionType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form = System.Xml.Schema.XmlSchemaForm.Unqualified, DataType = "integer")]
+    [Key(0)]
     public string timestamp
     {
         get
@@ -78,6 +85,7 @@ public partial class AccountTransactionType {
 
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(1)]
     public string server {
         get {
             return this.serverField;
@@ -89,6 +97,7 @@ public partial class AccountTransactionType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified, DataType="positiveInteger")]
+    [Key(2)]
     public string transactionNum {
         get {
             return this.transactionNumField;
@@ -100,6 +109,7 @@ public partial class AccountTransactionType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(3)]
     public string action {
         get {
             return this.actionField;
@@ -111,6 +121,7 @@ public partial class AccountTransactionType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(4)]
     public string username {
         get {
             return this.usernameField;
@@ -122,6 +133,7 @@ public partial class AccountTransactionType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(5)]
     public decimal funds {
         get {
             return this.fundsField;
@@ -137,6 +149,7 @@ public partial class AccountTransactionType {
 [System.SerializableAttribute()]
 [System.Diagnostics.DebuggerStepThroughAttribute()]
 [System.ComponentModel.DesignerCategoryAttribute("code")]
+[MessagePackObject]
 public partial class DebugType {
     
     private string timestampField;
@@ -161,6 +174,7 @@ public partial class DebugType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified, DataType="integer")]
+    [Key(0)]
     public string timestamp {
         get {
             return this.timestampField;
@@ -172,6 +186,7 @@ public partial class DebugType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(1)]
     public string server {
         get {
             return this.serverField;
@@ -183,6 +198,7 @@ public partial class DebugType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified, DataType="positiveInteger")]
+    [Key(2)]
     public string transactionNum {
         get {
             return this.transactionNumField;
@@ -194,6 +210,7 @@ public partial class DebugType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(3)]
     public commandType command {
         get {
             return this.commandField;
@@ -205,6 +222,7 @@ public partial class DebugType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(4)]
     public string username {
         get {
             return this.usernameField;
@@ -216,6 +234,7 @@ public partial class DebugType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(5)]
     public string stockSymbol {
         get {
             return this.stockSymbolField;
@@ -227,6 +246,7 @@ public partial class DebugType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(6)]
     public string filename {
         get {
             return this.filenameField;
@@ -238,6 +258,7 @@ public partial class DebugType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(7)]
     public decimal funds {
         get {
             return this.fundsField;
@@ -249,6 +270,7 @@ public partial class DebugType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlIgnoreAttribute()]
+    [Key(8)]
     public bool fundsSpecified {
         get {
             return this.fundsFieldSpecified;
@@ -260,6 +282,7 @@ public partial class DebugType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(9)]
     public string debugMessage {
         get {
             return this.debugMessageField;
@@ -329,6 +352,7 @@ public enum commandType {
 [System.SerializableAttribute()]
 [System.Diagnostics.DebuggerStepThroughAttribute()]
 [System.ComponentModel.DesignerCategoryAttribute("code")]
+[MessagePackObject]
 public partial class ErrorEventType {
     
     private string timestampField;
@@ -353,6 +377,7 @@ public partial class ErrorEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified, DataType="integer")]
+    [Key(0)]
     public string timestamp {
         get {
             return this.timestampField;
@@ -364,6 +389,7 @@ public partial class ErrorEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(1)]
     public string server {
         get {
             return this.serverField;
@@ -375,6 +401,7 @@ public partial class ErrorEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified, DataType="positiveInteger")]
+    [Key(2)]
     public string transactionNum {
         get {
             return this.transactionNumField;
@@ -386,6 +413,7 @@ public partial class ErrorEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(3)]
     public commandType command {
         get {
             return this.commandField;
@@ -397,6 +425,7 @@ public partial class ErrorEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(4)]
     public string username {
         get {
             return this.usernameField;
@@ -408,6 +437,7 @@ public partial class ErrorEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(5)]
     public string stockSymbol {
         get {
             return this.stockSymbolField;
@@ -419,6 +449,7 @@ public partial class ErrorEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(6)]
     public string filename {
         get {
             return this.filenameField;
@@ -430,6 +461,7 @@ public partial class ErrorEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(7)]
     public decimal funds {
         get {
             return this.fundsField;
@@ -441,6 +473,7 @@ public partial class ErrorEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlIgnoreAttribute()]
+    [Key(8)]
     public bool fundsSpecified {
         get {
             return this.fundsFieldSpecified;
@@ -452,6 +485,7 @@ public partial class ErrorEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(9)]
     public string errorMessage {
         get {
             return this.errorMessageField;
@@ -467,6 +501,7 @@ public partial class ErrorEventType {
 [System.SerializableAttribute()]
 [System.Diagnostics.DebuggerStepThroughAttribute()]
 [System.ComponentModel.DesignerCategoryAttribute("code")]
+[MessagePackObject]
 public partial class SystemEventType {
     
     private string timestampField;
@@ -489,6 +524,7 @@ public partial class SystemEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified, DataType="integer")]
+    [Key(0)]
     public string timestamp {
         get {
             return this.timestampField;
@@ -500,6 +536,7 @@ public partial class SystemEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(1)]
     public string server {
         get {
             return this.serverField;
@@ -511,6 +548,7 @@ public partial class SystemEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified, DataType="positiveInteger")]
+    [Key(2)]
     public string transactionNum {
         get {
             return this.transactionNumField;
@@ -522,6 +560,7 @@ public partial class SystemEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(3)]
     public commandType command {
         get {
             return this.commandField;
@@ -533,6 +572,7 @@ public partial class SystemEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(4)]
     public string username {
         get {
             return this.usernameField;
@@ -544,6 +584,7 @@ public partial class SystemEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(5)]
     public string stockSymbol {
         get {
             return this.stockSymbolField;
@@ -555,6 +596,7 @@ public partial class SystemEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(6)]
     public string filename {
         get {
             return this.filenameField;
@@ -566,6 +608,7 @@ public partial class SystemEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(7)]
     public decimal funds {
         get {
             return this.fundsField;
@@ -577,6 +620,7 @@ public partial class SystemEventType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlIgnoreAttribute()]
+    [Key(8)]
     public bool fundsSpecified {
         get {
             return this.fundsFieldSpecified;
@@ -592,6 +636,7 @@ public partial class SystemEventType {
 [System.SerializableAttribute()]
 [System.Diagnostics.DebuggerStepThroughAttribute()]
 [System.ComponentModel.DesignerCategoryAttribute("code")]
+[MessagePackObject]
 public partial class QuoteServerType {
     
     private string timestampField;
@@ -612,6 +657,7 @@ public partial class QuoteServerType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified, DataType="integer")]
+    [Key(0)]
     public string timestamp {
         get {
             return this.timestampField;
@@ -623,6 +669,7 @@ public partial class QuoteServerType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(1)]
     public string server {
         get {
             return this.serverField;
@@ -634,6 +681,7 @@ public partial class QuoteServerType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified, DataType="positiveInteger")]
+    [Key(2)]
     public string transactionNum {
         get {
             return this.transactionNumField;
@@ -645,6 +693,7 @@ public partial class QuoteServerType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(3)]
     public decimal price {
         get {
             return this.priceField;
@@ -656,6 +705,7 @@ public partial class QuoteServerType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(4)]
     public string stockSymbol {
         get {
             return this.stockSymbolField;
@@ -667,6 +717,7 @@ public partial class QuoteServerType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(5)]
     public string username {
         get {
             return this.usernameField;
@@ -678,6 +729,7 @@ public partial class QuoteServerType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified, DataType="integer")]
+    [Key(6)]
     public string quoteServerTime {
         get {
             return this.quoteServerTimeField;
@@ -689,6 +741,7 @@ public partial class QuoteServerType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(7)]
     public string cryptokey {
         get {
             return this.cryptokeyField;
@@ -704,6 +757,7 @@ public partial class QuoteServerType {
 [System.SerializableAttribute()]
 [System.Diagnostics.DebuggerStepThroughAttribute()]
 [System.ComponentModel.DesignerCategoryAttribute("code")]
+[MessagePackObject]
 public partial class UserCommandType {
     
     private string timestampField;
@@ -726,6 +780,7 @@ public partial class UserCommandType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified, DataType="integer")]
+    [Key(0)]
     public string timestamp {
         get {
             return this.timestampField;
@@ -737,6 +792,7 @@ public partial class UserCommandType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(1)]
     public string server {
         get {
             return this.serverField;
@@ -748,6 +804,7 @@ public partial class UserCommandType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified, DataType="positiveInteger")]
+    [Key(2)]
     public string transactionNum {
         get {
             return this.transactionNumField;
@@ -759,6 +816,7 @@ public partial class UserCommandType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(3)]
     public commandType command {
         get {
             return this.commandField;
@@ -770,6 +828,7 @@ public partial class UserCommandType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(4)]
     public string username {
         get {
             return this.usernameField;
@@ -781,6 +840,7 @@ public partial class UserCommandType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(5)]
     public string stockSymbol {
         get {
             return this.stockSymbolField;
@@ -792,6 +852,7 @@ public partial class UserCommandType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(6)]
     public string filename {
         get {
             return this.filenameField;
@@ -803,6 +864,7 @@ public partial class UserCommandType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+    [Key(7)]
     public decimal funds {
         get {
             return this.fundsField;
@@ -814,6 +876,7 @@ public partial class UserCommandType {
     
     /// <remarks/>
     [System.Xml.Serialization.XmlIgnoreAttribute()]
+    [Key(8)]
     public bool fundsSpecified {
         get {
             return this.fundsFieldSpecified;

@@ -1,16 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Base;
 using Database;
-using Newtonsoft.Json;
-using Constants;
 using Utilities;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 using System.Data;
 
-namespace BuyService
+namespace TransactionServer.Services.Buy
 {
     class BuyCommitCommand : BaseService
     {
@@ -28,8 +23,8 @@ namespace BuyService
             }
             catch (Exception e)
             {
-                result = await LogErrorEvent(command, "Error getting account details").ConfigureAwait(false);
-                await LogDebugEvent(command, e.Message).ConfigureAwait(false);
+                result = LogErrorEvent(command, "Error getting account details");
+                LogDebugEvent(command, e.Message);
             }
             return result;
         }
@@ -59,8 +54,9 @@ namespace BuyService
 
                 if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
                 {
-                    return await LogErrorEvent(command, Convert.ToString(cmd.Parameters["@message"].Value)).ConfigureAwait(false);
+                    return LogErrorEvent(command, Convert.ToString(cmd.Parameters["@message"].Value));
                 }
+
                 return $"Successfully bought {Convert.ToDecimal(cmd.Parameters["@stockAmount"].Value) / 100m} worth of {cmd.Parameters["@stockBuy"].Value}.";
             }
         }

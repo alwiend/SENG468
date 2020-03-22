@@ -1,15 +1,11 @@
-﻿using Base;
-using Constants;
-using Database;
+﻿using Database;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using Utilities;
 using MySql.Data.MySqlClient;
 using System.Data;
 
-namespace BuyTriggerService
+namespace TransactionServer.Services.BuyTrigger
 {
     public class SetBuyAmount : BaseService
     {
@@ -28,8 +24,8 @@ namespace BuyTriggerService
             }
             catch (Exception ex)
             {
-                await LogDebugEvent(command, ex.Message).ConfigureAwait(false);
-                return await LogErrorEvent(command, "Error processing command").ConfigureAwait(false);
+                LogDebugEvent(command, ex.Message);
+                return LogErrorEvent(command, "Error processing command");
             }
             return result;
         }
@@ -43,12 +39,12 @@ namespace BuyTriggerService
                 var msg = await CheckMoney(cmd, command).ConfigureAwait(false);
                 if (msg != null)
                 {
-                    return await LogErrorEvent(command, msg).ConfigureAwait(false);
+                    return LogErrorEvent(command, msg);
                 }
                 cmd.Parameters.Clear();
                 await SetUserMoney(cmd, command).ConfigureAwait(false);
             }
-            await LogTransactionEvent(command, "remove").ConfigureAwait(false);
+            LogTransactionEvent(command, "remove");
             return $"Buy amount set successfully for stock {command.stockSymbol}";
         }
 
@@ -65,11 +61,11 @@ namespace BuyTriggerService
 
             if (cmd.Parameters["@pMoney"].Value == DBNull.Value)
             {
-                return await LogErrorEvent(command, "User does not exist").ConfigureAwait(false); ;
+                return LogErrorEvent(command, "User does not exist");
             }
             if (Convert.ToInt32(cmd.Parameters["@pMoney"].Value) < command.funds)
             {
-                return await LogErrorEvent(command, "Insufficient user funds").ConfigureAwait(false); ;
+                return LogErrorEvent(command, "Insufficient user funds");
             }
 
             command.fundsSpecified = false;

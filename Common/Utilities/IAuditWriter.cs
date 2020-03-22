@@ -5,8 +5,8 @@ using System.Threading.Tasks;
 
 namespace Utilities
 {
-    public interface IAuditWriter
+    public interface IAuditWriter : IDisposable
     {
-        public Task WriteRecord(object record);
+        public void WriteRecord(object record);
     }
 }

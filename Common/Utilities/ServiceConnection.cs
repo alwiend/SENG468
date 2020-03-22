@@ -1,22 +1,37 @@
-﻿using Constants;
+﻿using MessagePack;
 using System;
-using System.Collections.Generic;
+using System.Buffers;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Xml.Serialization;
 
 namespace Utilities
 {
-    public class ServiceConnection
+    public class ServiceConnection : IDisposable
     {
         readonly IPEndPoint localEndPoint;
+        TcpClient client;
+        private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();
+        MessagePackStreamReader streamReader;
+
+        public bool Connected
+        {
+            get
+            {
+                return client != null && client.Connected;
+            }
+        }
 
         public ServiceConnection(ServiceConstant sc)
+#if DEBUG
+            : this(IPAddress.Loopback, sc.Port)
+#else
             : this(Dns.GetHostAddresses(sc.ServiceName).FirstOrDefault(), sc.Port)
+#endif
+        // : this(IPAddress.loopback, sc.Port)
         {
         }
 
@@ -25,55 +40,70 @@ namespace Utilities
             localEndPoint = new IPEndPoint(addr, port);
         }
 
-        public async Task<string> Send(UserCommandType userCommand, bool receive = false)
+        public void Dispose()
         {
-            string result = "";
+             _tokenSource.Cancel();
             try
             {
-                TcpClient client = new TcpClient(AddressFamily.InterNetwork);
+                if (client.Connected)
+                {
+                    client.Client.Shutdown(SocketShutdown.Both);
+                    streamReader.Dispose();
+                    client.GetStream().Close();
+                    client.Dispose();
+                }
+            }
+            catch (Exception) { }
+        }
+
+        public async Task<bool> ConnectAsync()
+        {
+            try
+            {
+                client = new TcpClient(AddressFamily.InterNetwork);
+#if DEBUG
+                await client.ConnectAsync(IPAddress.Loopback, localEndPoint.Port).ConfigureAwait(false);
+#else
                 await client.ConnectAsync(localEndPoint.Address, localEndPoint.Port).ConfigureAwait(false);
+#endif
+                streamReader = new MessagePackStreamReader(client.GetStream());
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return false;
+            }
+            return true;
+        }
 
-                StreamReader client_in = null;
-                try
+        public async Task<string> SendAsync(UserCommandType userCommand, bool receive = false)
+        {
+            if (_tokenSource.IsCancellationRequested) return "";
+            string result = "";
+            ServiceResult sr;
+            try
+            {
+                await MessagePackSerializer.SerializeAsync<UserCommandType>(client.GetStream(), userCommand).ConfigureAwait(false);
+                if (receive)
                 {
-                    client_in = new StreamReader(client.GetStream());
-
-                    XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
-                    using StreamWriter client_out = new StreamWriter(client.GetStream());
-                    serializer.Serialize(client_out, userCommand);
-                    await client_out.FlushAsync().ConfigureAwait(false);
-                    client.Client.Shutdown(SocketShutdown.Send);
-
-                    if (receive)
+                    ReadOnlySequence<byte>? msgpack;
+                    msgpack = await streamReader.ReadAsync(_tokenSource.Token).ConfigureAwait(false);
+                    if (!msgpack.HasValue)
                     {
-                        result = await client_in.ReadToEndAsync().ConfigureAwait(false);
+                        if (!_tokenSource.IsCancellationRequested)
+                        {
+                            Dispose();
+                        }
+                        return "";
                     }
-                    client.Client.Shutdown(SocketShutdown.Receive);
+                    sr = MessagePackSerializer.Deserialize<ServiceResult>(msgpack.Value, cancellationToken: _tokenSource.Token);
+                    result = sr.Message;
                 }
-
-                // Manage of Socket's Exceptions 
-                catch (ArgumentNullException ane)
-                {
-
-                    Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
-                }
-
-                catch (SocketException se)
-                {
-
-                    Console.WriteLine("SocketException : {0}", se.ToString());
-                }
-
-                catch (Exception e)
-                {
-                    Console.WriteLine("Unexpected exception : {0}", e.ToString());
-                }
-                client.Client.Close();
-                client.Dispose();
             }
 
             catch (Exception e)
             {
+                Console.WriteLine(e);
                 return null;
             }
             return result;
@@ -84,24 +114,24 @@ namespace Utilities
             string result = "";
             try
             {
-                TcpClient client = new TcpClient(AddressFamily.InterNetwork);
-                await client.ConnectAsync(localEndPoint.Address, localEndPoint.Port).ConfigureAwait(false);
+                TcpClient tcpClient = new TcpClient(AddressFamily.InterNetwork);
+                await tcpClient.ConnectAsync(localEndPoint.Address, localEndPoint.Port).ConfigureAwait(false);
                 StreamReader client_in = null;
                 StreamWriter client_out = null;
                 try
                 {
-                    client_in = new StreamReader(client.GetStream());
-                    client_out = new StreamWriter(client.GetStream());
+                    client_in = new StreamReader(tcpClient.GetStream());
+                    client_out = new StreamWriter(tcpClient.GetStream());
 
                     await client_out.WriteAsync(data).ConfigureAwait(false);
                     await client_out.FlushAsync().ConfigureAwait(false);
-                    client.Client.Shutdown(SocketShutdown.Send);
+                    tcpClient.Client.Shutdown(SocketShutdown.Send);
 
                     if (receive)
                     {
                         result = await client_in.ReadToEndAsync().ConfigureAwait(false);
                     }
-                    client.Client.Shutdown(SocketShutdown.Receive);
+                    tcpClient.Client.Shutdown(SocketShutdown.Receive);
                 }
 
                 // Manage of Socket's Exceptions 
@@ -121,8 +151,8 @@ namespace Utilities
                 {
                     Console.WriteLine("Unexpected exception : {0}", e.ToString());
                 }
-                client.Client.Close();
-                client.Dispose();
+                tcpClient.Client.Close();
+                tcpClient.Dispose();
             }
 
             catch (Exception e)
@@ -132,5 +162,12 @@ namespace Utilities
             }
             return result;
         }
+    }
+
+    [MessagePackObject]
+    public class ServiceResult
+    {
+        [Key(0)]
+        public string Message { get; set; }
     }
 }

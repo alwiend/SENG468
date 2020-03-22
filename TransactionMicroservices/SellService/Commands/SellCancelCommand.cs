@@ -1,15 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Base;
 using Database;
 using Utilities;
-using Constants;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 using System.Data;
 
-namespace SellService
+namespace TransactionServer.Services.Sell
 {
     class SellCancelCommand : BaseService
     {
@@ -27,8 +23,8 @@ namespace SellService
             }
             catch (Exception e)
             {
-                result = await LogErrorEvent(command, "Error getting account details").ConfigureAwait(false);
-                await LogDebugEvent(command, e.Message).ConfigureAwait(false);
+                result = LogErrorEvent(command, "Error getting account details");
+                LogDebugEvent(command, e.Message);
             }
             return result;
         }

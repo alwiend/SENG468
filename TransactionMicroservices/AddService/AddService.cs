@@ -1,22 +1,23 @@
 ﻿// Connects to Quote Server and returns quote
 using System;
 using System.Data;
+using System.Threading;
 using System.Threading.Tasks;
-using Base;
-using Constants;
 using Database;
 using MySql.Data.MySqlClient;
 using Utilities;
 
-namespace AddService
+namespace TransactionServer.Services
 {
 
     public class AddService : BaseService
     {
         public static async Task Main(string[] args)
         {
+            ThreadPool.SetMinThreads(Environment.ProcessorCount * 15, Environment.ProcessorCount * 10);
             var add_service = new AddService(Service.ADD_SERVICE, new AuditWriter());
             await add_service.StartService().ConfigureAwait(false);
+            add_service.Dispose();
         }
 
         public AddService (ServiceConstant sc, IAuditWriter aw) : base(sc, aw)
@@ -39,12 +40,12 @@ namespace AddService
                 await db.PerformTransaction(AddMoney, command).ConfigureAwait(false);
                 result = $"Successfully added {command.funds/100m} into {command.username}'s account";
 
-                await LogTransactionEvent(command, "add").ConfigureAwait(false);
+                LogTransactionEvent(command, "add");
             }
             catch (Exception e)
             {
-                await LogDebugEvent(command, e.Message).ConfigureAwait(false);
-                result = await LogErrorEvent(command, "Error occurred adding money.").ConfigureAwait(false);
+                LogDebugEvent(command, e.Message);
+                result = LogErrorEvent(command, "Error occurred adding money.");
             }
             return result;
         }
