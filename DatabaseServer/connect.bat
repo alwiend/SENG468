@@ -1,4 +1,1 @@
-@echo off
-for /f "delims=" %%i in ('docker service ps -f 'name=dev_db.1' dev_db -q --no-trunc') do set output=%db%
-
-echo %db%
+docker exec -ti databaseserver_db_1 mysql -u root -ppassword

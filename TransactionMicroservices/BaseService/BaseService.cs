@@ -13,21 +13,24 @@ using Constants;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using StackExchange.Redis;
+using MessagePack;
+using System.Buffers;
 
-namespace Base
+namespace TransactionServer.Services
 {
-    public abstract class BaseService
+    public abstract class BaseService : IDisposable
     {
         protected IAuditWriter Auditor { get; }
         protected ServiceConstant ServiceDetails { get; }
 
-        protected ConnectionMultiplexer muxer { get; }
+        protected ConnectionMultiplexer Muxer { get; }
+        private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
         public BaseService(ServiceConstant sc, IAuditWriter aw, ConnectionMultiplexer cm)
         {
             ServiceDetails = sc;
             Auditor = aw;
-            muxer = cm;
+            Muxer = cm;
         }
 
         public BaseService(ServiceConstant sc, IAuditWriter aw)
@@ -36,11 +39,18 @@ namespace Base
             Auditor = aw;
         }
 
+        public virtual void Dispose()
+        {
+            Auditor.Dispose();
+            Muxer.Dispose();
+            _tokenSource.Dispose();
+        }
+
         /*
 		 * Logs interserver communication
 		 * @param command The user command that is driving the process
 		 */
-        async Task LogServerEvent(UserCommandType command)
+        protected void LogServerEvent(UserCommandType command)
         {
             SystemEventType sysEvent = new SystemEventType()
             {
@@ -54,11 +64,11 @@ namespace Base
                 stockSymbol = command.stockSymbol
             };
             if (command.fundsSpecified)
-                sysEvent.funds = command.funds/100m;
-            Auditor.WriteRecord(sysEvent).ConfigureAwait(false);
+                sysEvent.funds = command.funds / 100m;
+            Auditor.WriteRecord(sysEvent);
         }
 
-        protected async Task LogTransactionEvent(UserCommandType command, string action)
+        protected void LogTransactionEvent(UserCommandType command, string action)
         {
             AccountTransactionType transaction = new AccountTransactionType()
             {
@@ -70,29 +80,11 @@ namespace Base
             };
             if (command.fundsSpecified)
                 transaction.funds = command.funds / 100m;
-            Auditor.WriteRecord(transaction).ConfigureAwait(false);
+            Auditor.WriteRecord(transaction);
         }
 
-        protected async Task<int> LogQuoteServerEvent(UserCommandType command, string quote)
-        {
-            //Cost,StockSymbol,UserId,Timestamp,CryptoKey
-            string[] args = quote.Split(",");
-            QuoteServerType stockQuote = new QuoteServerType()
-            {
-                username = args[2],
-                server = Server.QUOTE_SERVER.Abbr,
-                price = Convert.ToDecimal(args[0]),
-                transactionNum = command.transactionNum,
-                stockSymbol = args[1],
-                timestamp = Unix.TimeStamp.ToString(),
-                quoteServerTime = args[3],
-                cryptokey = args[4]
-            };
-            Auditor.WriteRecord(stockQuote).ConfigureAwait(false);
-            return (int)(stockQuote.price * 100);
-        }
 
-        protected async Task<string> LogErrorEvent(UserCommandType command, string err)
+        protected string LogErrorEvent(UserCommandType command, string err)
         {
             ErrorEventType error = new ErrorEventType()
             {
@@ -108,11 +100,11 @@ namespace Base
             if (command.fundsSpecified)
                 error.funds = command.funds / 100m;
 
-            Auditor.WriteRecord(error).ConfigureAwait(false);
+            Auditor.WriteRecord(error);
             return error.errorMessage;
         }
 
-        protected async Task LogDebugEvent(UserCommandType command, string err)
+        protected void LogDebugEvent(UserCommandType command, string err)
         {
             DebugType bug = new DebugType()
             {
@@ -125,38 +117,56 @@ namespace Base
             };
             if (command.fundsSpecified)
                 bug.funds = command.funds / 100m;
-            Auditor.WriteRecord(bug).ConfigureAwait(false);
+            Auditor.WriteRecord(bug);
         }
 
         protected virtual Task<string> DataReceived(UserCommandType userCommand) { return null; }
 
-        private async Task ProcessClient(TcpClient client)
+        protected virtual async Task ProcessClient(TcpClient client)
         {
-            UserCommandType command = null;
-            try
+            UserCommandType command;
+            ReadOnlySequence<byte>? msgpack;
+            ServiceResult sr = new ServiceResult();
+            var streamReader = new MessagePackStreamReader(client.GetStream());
+            while (client.Connected)
             {
-                XmlSerializer serializer = new XmlSerializer(typeof(UserCommandType));
+                command = null;
+                try
+                {
+                    msgpack = await streamReader.ReadAsync(_tokenSource.Token).ConfigureAwait(false);
+                    if (!msgpack.HasValue)
+                    {
+                        break; // End of connection
+                    }
+                    command = MessagePackSerializer.Deserialize<UserCommandType>(msgpack.Value, cancellationToken: _tokenSource.Token);
 
-                using StreamReader client_in = new StreamReader(client.GetStream());
-                command = (UserCommandType)serializer.Deserialize(client_in);
-                await LogServerEvent(command).ConfigureAwait(false);
+                    if (command == null)
+                    {
+                        continue;
+                    }
 
-                string retData = await DataReceived(command).ConfigureAwait(false);
-                //string retData = command.command.ToString();
-
-                using StreamWriter client_out = new StreamWriter(client.GetStream());
-                await client_out.WriteAsync(retData).ConfigureAwait(false);
-                await client_out.FlushAsync().ConfigureAwait(false);
+                    LogServerEvent(command);
+                    sr.Message = await DataReceived(command).ConfigureAwait(false);
+                    if (string.IsNullOrEmpty(sr.Message))
+                    {
+                        continue;
+                    }
+                    await MessagePackSerializer.SerializeAsync<ServiceResult>(client.GetStream(), sr).ConfigureAwait(false);
+                }
+                catch (IOException)
+                {
+                    // Client connection failed. Dispose of it
+                    break;
+                }
+                catch (Exception e)
+                {
+                    if (command != null) LogDebugEvent(command, e.Message);
+                    else Console.WriteLine(e);
+                    Console.WriteLine(e);
+                }
             }
-            catch (Exception ex)
-            {
-                if (command != null) await LogDebugEvent(command, ex.Message);
-                else Console.WriteLine(ex);
-            }
-            finally
-            {
-                client.Close();
-            }
+            streamReader.Dispose();
+            client.Dispose();
         }
 
         public async Task StartService()

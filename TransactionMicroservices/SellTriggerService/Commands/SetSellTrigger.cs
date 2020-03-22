@@ -1,16 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 using Constants;
-using Base;
 using Utilities;
-using Database;
 using System.Threading.Tasks;
-using MySql.Data.MySqlClient;
-using System.Data;
 
-namespace SellTriggerService
+namespace TransactionServer.Services.SellTrigger
 {
     public class SetSellTrigger : BaseService
     {
@@ -28,12 +22,12 @@ namespace SellTriggerService
                 {
                     return $"Trigger amount set successfully for stock {command.stockSymbol}";
                 }
-                return await LogErrorEvent(command, msg).ConfigureAwait(false);
+                return LogErrorEvent(command, msg);
             }
             catch (Exception ex)
             {
-                await LogDebugEvent(command, ex.Message).ConfigureAwait(false);
-                return await LogErrorEvent(command, "Error processing command.").ConfigureAwait(false);
+                LogDebugEvent(command, ex.Message);
+                return LogErrorEvent(command, "Error processing command.");
             }
         }
     }

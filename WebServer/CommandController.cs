@@ -1,50 +1,70 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
 using System.Threading.Tasks;
-using System.Xml.Serialization;
 using Constants;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.Extensions.Logging;
 using Utilities;
 
-namespace WebServer.Pages
+// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+
+namespace WebServer
 {
-    public class IndexModel : PageModel
+    [Produces("application/json")]
+    [Route("api/command")]
+    public class CommandController : Controller
     {
-        private readonly GlobalTransaction _globalTransaction;
-        private readonly IAuditWriter _writer;
+        readonly IAuditWriter _writer;
+        readonly GlobalTransaction _globalTransaction;
+        readonly static ConcurrentDictionary<string, ConnectedServices> clientConnections = new ConcurrentDictionary<string, ConnectedServices>();
 
-        [BindProperty]
-        public string Command { get; set; }
+        public class TransactionCommand
+        {
+            public string Command;
+        }
 
-        [BindProperty]
-        public string Result { get; set; }
-
-        public IndexModel(GlobalTransaction gt, IAuditWriter aw)
+        public CommandController(GlobalTransaction gt, IAuditWriter aw)
         {
             _globalTransaction = gt;
             _writer = aw;
         }
 
-        public async Task<IActionResult> OnPostAsync()
+        [HttpHead]
+        public async Task<IActionResult> HeadAsync([FromQuery(Name = "cmd")] string Command)
         {
+            return await HandleTransaction(Command);
+        }
+
+
+        [HttpGet]
+        public async Task<IActionResult> GetAsync([FromQuery(Name = "cmd")] string Command)
+        {
+            return await HandleTransaction(Command);
+        }
+
+
+        // POST api/<controller>
+        [HttpPost]
+        public async Task<IActionResult> PostAsync([FromBody]TransactionCommand transaction)
+        {
+            return await HandleTransaction(transaction.Command);
+        }
+
+        private async Task<IActionResult> HandleTransaction(string Command)
+        { 
+            string Result = "";
             if (Command == null || Command.Length == 0)
             {
                 Result = "Please enter a command";
-                return Page();
+                return BadRequest(Result);
             }
 
             string[] args = Array.ConvertAll(Command.Split(','), p => p.Trim());
             if (!Enum.TryParse(typeof(commandType), args[0].ToUpper(), out object ct))
             {
                 Result = "Invalid command";
-                return Page();
+                return BadRequest(Result);
             }
 
             UserCommandType userCommand = new UserCommandType
@@ -64,7 +84,8 @@ namespace WebServer.Pages
                         userCommand.username = args[1];
                         var quote = await GetServiceResult(Service.QUOTE_SERVICE, userCommand);
                         Result = $"{Convert.ToDecimal(quote) / 100m}";
-                    } else
+                    }
+                    else
                     {
                         Result = "Usage: QUOTE,userid,stock";
                     }
@@ -87,7 +108,7 @@ namespace WebServer.Pages
                     {
                         userCommand.filename = args[1];
                         _writer.WriteRecord(userCommand);
-                    } 
+                    }
                     else if (args.Length == 3)
                     {
                         userCommand.username = args[1];
@@ -107,7 +128,8 @@ namespace WebServer.Pages
                         userCommand.fundsSpecified = true;
                         userCommand.funds = Convert.ToDecimal(args[3]) * 100;
                         Result = await GetServiceResult(Service.BUY_SERVICE, userCommand);
-                    } else
+                    }
+                    else
                     {
                         Result = "Usage: BUY,userid,stock,amount";
                     }
@@ -117,7 +139,8 @@ namespace WebServer.Pages
                     {
                         userCommand.username = args[1];
                         Result = await GetServiceResult(Service.BUY_COMMIT_SERVICE, userCommand);
-                    } else
+                    }
+                    else
                     {
                         Result = "Usage: COMMIT_BUY,userid";
                     }
@@ -127,7 +150,8 @@ namespace WebServer.Pages
                     {
                         userCommand.username = args[1];
                         Result = await GetServiceResult(Service.BUY_CANCEL_SERVICE, userCommand);
-                    } else
+                    }
+                    else
                     {
                         Result = "Usage: CANCEL_BUY,userid";
                     }
@@ -140,7 +164,8 @@ namespace WebServer.Pages
                         userCommand.username = args[1];
                         userCommand.stockSymbol = args[2];
                         Result = await GetServiceResult(Service.SELL_SERVICE, userCommand);
-                    } else
+                    }
+                    else
                     {
                         Result = "Usage: SELL,userid,StockSymbol,amount";
                     }
@@ -150,7 +175,8 @@ namespace WebServer.Pages
                     {
                         userCommand.username = args[1];
                         Result = await GetServiceResult(Service.SELL_COMMIT_SERVICE, userCommand);
-                    } else
+                    }
+                    else
                     {
                         Result = "Usage: COMMIT_SELL,userid";
                     }
@@ -160,7 +186,8 @@ namespace WebServer.Pages
                     {
                         userCommand.username = args[1];
                         Result = await GetServiceResult(Service.SELL_CANCEL_SERVICE, userCommand);
-                    } else
+                    }
+                    else
                     {
                         Result = "Usage: CANCEL_SELL,userid";
                     }
@@ -250,17 +277,22 @@ namespace WebServer.Pages
                     {
                         userCommand.username = args[1];
                         Result = await GetServiceResult(Service.DISPLAY_SUMMARY_SERVICE, userCommand);
-                    } else
+                    }
+                    else
                     {
                         Result = "Usage: DISPLAY_SUMMARY,userid";
-                    }                    
+                    }
                     break;
                 default:
                     Result = "Invalid Command";
                     break;
             }
+            if (Result == null)
+            {
+                return StatusCode(503, "Service unavailable");
+            }
 
-            return Page();
+            return Ok(Result);
         }
 
         /*
@@ -269,17 +301,30 @@ namespace WebServer.Pages
         async Task<string> GetServiceResult(ServiceConstant sc, UserCommandType userCommand)
         {
             _writer.WriteRecord(userCommand);
+            var delay = 500;
 
             try
             {
-                //ServiceConnection conn = new ServiceConnection(IPAddress.Loopback, sc.Port);
-                //ServiceConnection conn = new ServiceConnection(sc);
-                //return await conn.Send(userCommand, true).ConfigureAwait(false);
-                return $"WebServer: {userCommand.command}";
-            } catch(Exception ex)
+                string result = null;
+                do
+                {
+                    ConnectedServices cs = clientConnections.GetOrAdd(userCommand.username, new ConnectedServices());
+                    ServiceConnection conn = await cs.GetServiceConnectionAsync(sc).ConfigureAwait(false);
+                    if (conn == null)
+                    {
+                        throw new Exception("Failed to connect to service");
+                    }
+                    result = await conn.SendAsync(userCommand, true).ConfigureAwait(false);
+                    if (result == null)
+                        await Task.Delay(delay).ConfigureAwait(false); // Short delay before tring again
+                } while (result == null);
+
+                return result;
+            }
+            catch (Exception ex)
             {
                 LogDebugEvent(userCommand, ex.Message);
-                return "Service not available";
+                return null;
             }
         }
 

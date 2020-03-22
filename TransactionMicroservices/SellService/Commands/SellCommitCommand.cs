@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Base;
 using Database;
 using Constants;
 using Utilities;
@@ -9,7 +6,7 @@ using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 using System.Data;
 
-namespace SellService
+namespace TransactionServer.Services.Sell
 {
     class SellCommitCommand : BaseService
     {
@@ -28,10 +25,10 @@ namespace SellService
             }
             catch (Exception e)
             {
-                result = await LogErrorEvent(command, "Error getting account details").ConfigureAwait(false);
-                await LogDebugEvent(command, e.Message).ConfigureAwait(false);
+                result = LogErrorEvent(command, "Error getting account details");
+                LogDebugEvent(command, e.Message);
             }
-            await LogTransactionEvent(command, "add").ConfigureAwait(false);
+            LogTransactionEvent(command, "add");
             return result;
         }
 

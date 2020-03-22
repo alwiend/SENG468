@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using Base;
 using Constants;
-using Newtonsoft.Json;
 using Utilities;
 using Database;
 using System.Threading.Tasks;
@@ -10,14 +7,15 @@ using MySql.Data.MySqlClient;
 using System.Data;
 using System.Text;
 
-namespace DisplaySummaryService
+namespace TransactionServer.Services
 {
-    class DisplaySummaryService : BaseService
+    public class DisplaySummaryService : BaseService
     {
-        static async Task Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var display_summary_service = new DisplaySummaryService(Service.DISPLAY_SUMMARY_SERVICE, new AuditWriter());
             await display_summary_service.StartService().ConfigureAwait(false);
+            display_summary_service.Dispose();
         }
 
         public DisplaySummaryService(ServiceConstant sc, IAuditWriter aw) : base(sc, aw)
@@ -34,8 +32,8 @@ namespace DisplaySummaryService
             }
             catch (Exception e)
             {
-                result = await LogErrorEvent(command, "Error getting account details").ConfigureAwait(false);
-                await LogDebugEvent(command, e.Message).ConfigureAwait(false);
+                result = LogErrorEvent(command, "Error getting account details");
+                LogDebugEvent(command, e.Message);
             }
             return result;
         }

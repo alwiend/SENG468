@@ -1,33 +1,42 @@
 ﻿using Database;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
-using System.Timers;
 using Utilities;
 using MySql.Data.MySqlClient;
 using System.Data;
 using System.Collections.Concurrent;
 using System.Linq;
+using Constants;
 
-namespace BuyTriggerService
+namespace TransactionServer.Services.BuyTrigger
 {
-    public class BuyTriggerTimer
+    public sealed class BuyTriggerTimer : IDisposable
     {
-        private string _stockSymbol;
+        private readonly string _stockSymbol;
         private int _cost = int.MaxValue;
         private readonly ConcurrentDictionary<string, BuyTrigger> _users;
 
         private static readonly ConcurrentDictionary<string, BuyTriggerTimer> _timers = new ConcurrentDictionary<string, BuyTriggerTimer>();
         private static readonly object _timerLock = new object();
         private static readonly IAuditWriter _auditWriter = new AuditWriter();
+        readonly static ConcurrentDictionary<string, ConnectedServices> clientConnections = new ConcurrentDictionary<string, ConnectedServices>();
 
-        
+
         public BuyTriggerTimer(string ss)
         {
             _stockSymbol = ss;
             _users = new ConcurrentDictionary<string, BuyTrigger>();
         }
+
+        public void Dispose()
+        {
+            if (clientConnections.TryGetValue(_stockSymbol, out ConnectedServices svc))
+            {
+                svc.Dispose();
+            }
+        }
+
 
         public static async Task<string> StartOrUpdateTimer(UserCommandType command)
         {
@@ -54,7 +63,7 @@ namespace BuyTriggerService
             var msg = await timer.AddOrUpdateUser(command).ConfigureAwait(false);
             if (newTimer)
             {
-                timer.Start();
+                var _ = timer.Start();
             }
             return msg;
         }
@@ -121,11 +130,16 @@ namespace BuyTriggerService
                 {
                     var firstUser = _users.Values.First();
                     string response = await GetStock(firstUser.User, firstUser.StockSymbol).ConfigureAwait(false);
+                    if (response == null)
+                    {
+                        await Task.Delay(500).ConfigureAwait(false);
+                        continue;
+                    }
                     string[] args = response.Split(",");
 
                     _cost = Convert.ToInt32(args[0]);
                     var triggered = _users.Values.Where(t => t.Trigger >= _cost);
-                    if (triggered.Count() > 0)
+                    if (triggered.Any())
                     {
                         await BuyStockAndRemoveUserTrigger(triggered).ConfigureAwait(false);
                     }
@@ -140,6 +154,7 @@ namespace BuyTriggerService
                 }
             }
             _timers.TryRemove(_stockSymbol, out _);
+            Dispose();
         }
 
         private async Task BuyStockAndRemoveUserTrigger(IEnumerable<BuyTrigger> triggered)
@@ -183,17 +198,41 @@ namespace BuyTriggerService
             return true;
         }
 
+
         async Task<string> GetStock(string username, string stockSymbol)
         {
+            var delay = 500;
             UserCommandType cmd = new UserCommandType
             {
-                server = Constants.Server.WEB_SERVER.Abbr,
+                server = Service.SELL_TRIGGER_SET_SERVICE.Abbr,
                 command = commandType.SET_BUY_TRIGGER,
                 stockSymbol = stockSymbol,
                 username = username
             };
-            ServiceConnection conn = new ServiceConnection(Constants.Service.QUOTE_SERVICE);
-            return await conn.Send(cmd, true).ConfigureAwait(false);
+
+            try
+            {
+                string result = null;
+                do
+                {
+                    ConnectedServices cs = clientConnections.GetOrAdd(_stockSymbol, new ConnectedServices());
+                    ServiceConnection conn = await cs.GetServiceConnectionAsync(Service.QUOTE_SERVICE).ConfigureAwait(false);
+                    if (conn == null)
+                    {
+                        throw new Exception("Failed to connect to service");
+                    }
+                    result = await conn.SendAsync(cmd, true).ConfigureAwait(false);
+                    if (result == null)
+                        await Task.Delay(delay).ConfigureAwait(false); // Short delay before tring again
+                } while (result == null);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                LogDebugEvent(cmd, ex.Message);
+                return null;
+            }
         }
 
         static void LogDebugEvent(UserCommandType command, string err)
@@ -213,7 +252,7 @@ namespace BuyTriggerService
                 if (command.fundsSpecified)
                     bug.funds = command.funds / 100m;
             }
-            _auditWriter.WriteRecord(bug).ConfigureAwait(false);
+            _auditWriter.WriteRecord(bug);
         }
     }
 

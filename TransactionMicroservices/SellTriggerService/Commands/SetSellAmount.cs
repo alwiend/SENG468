@@ -1,15 +1,12 @@
-﻿using Base;
-using Constants;
+﻿using Constants;
 using Database;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using Utilities;
 using MySql.Data.MySqlClient;
 using System.Data;
 
-namespace SellTriggerService
+namespace TransactionServer.Services.SellTrigger
 {
     public class SetSellAmount : BaseService
     {
@@ -28,8 +25,8 @@ namespace SellTriggerService
             }
             catch (Exception ex)
             {
-                await LogDebugEvent(command, ex.Message).ConfigureAwait(false);
-                return await LogErrorEvent(command, "Error processing command").ConfigureAwait(false);
+                LogDebugEvent(command, ex.Message);
+                return LogErrorEvent(command, "Error processing command");
             }
             return result;
         }
@@ -43,12 +40,12 @@ namespace SellTriggerService
                 var msg = await CheckUserStock(cmd, command).ConfigureAwait(false);
                 if (msg != null)
                 {
-                    return await LogErrorEvent(command, msg).ConfigureAwait(false);
+                    return LogErrorEvent(command, msg);
                 }
                 cmd.Parameters.Clear();
                 await HoldUserStock(cmd, command).ConfigureAwait(false);
             }
-            await LogTransactionEvent(command, "remove").ConfigureAwait(false);
+            LogTransactionEvent(command, "remove");
             return $"Sell amount set successfully for stock {command.stockSymbol}";
         }
 
@@ -67,18 +64,18 @@ namespace SellTriggerService
 
             if (cmd.Parameters["@pStockAmount"].Value == DBNull.Value)
             {
-                return await LogErrorEvent(command, "User does not exist or does not have this stock").ConfigureAwait(false); ;
+                return LogErrorEvent(command, "User does not exist or does not have this stock");
             }
             if (Convert.ToInt32(cmd.Parameters["@pStockAmount"].Value) < command.funds)
             {
-                return await LogErrorEvent(command, "Insufficient user stocks").ConfigureAwait(false); ;
+                return LogErrorEvent(command, "Insufficient user stocks");
             }
 
             command.fundsSpecified = false;
             return await SellTriggerTimer.StartOrUpdateTimer(command).ConfigureAwait(false); ;
         }
 
-        async Task<string> HoldUserStock(MySqlCommand cmd, UserCommandType command)
+        static async Task<string> HoldUserStock(MySqlCommand cmd, UserCommandType command)
         {
             cmd.CommandText = "hold_user_stock";
 

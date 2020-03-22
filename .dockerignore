@@ -4,8 +4,11 @@
 **/.vs
 **/bin
 **/obj
-WorkloadGenerator
+DatabaseServer
 Images
+QuoteServer
+ServiceTester
 Swarm Files
+WorkloadGenerator
 SENG468 Project Documentation.pdf
 

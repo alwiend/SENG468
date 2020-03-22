@@ -12,99 +12,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using Constants;
+using Utf8Json;
+using MessagePack;
 
 namespace AuditServer
 {
 	class Program
 	{
-		private static List<object> Log { get; set; }
 		// Main Method 
 		static async Task Main(string[] args)
 		{
-			await ExecuteServer().ConfigureAwait(false);
-		}
-
-		private static async Task ProcessIncoming(TcpClient client)
-		{
-			UserCommandType command = null;
-			try
-			{
-				var stream = client.GetStream();
-				using StreamReader server_in = new StreamReader(client.GetStream());
-				var data = await server_in.ReadToEndAsync().ConfigureAwait(false);
-
-				XmlSerializer serializer = new XmlSerializer(typeof(LogType));
-				using StringReader sr = new StringReader(data);
-				var log_in = (LogType)serializer.Deserialize(sr);
-
-				for (int i = 0; i < log_in.Items.Length; i++)
-				{
-					var record = log_in.Items[i];
-					Log.Add(record);
-					if (record.GetType() == typeof(UserCommandType))
-					{
-						command = (UserCommandType)record;
-						if (command.command == commandType.DUMPLOG)
-						{
-							LogType logs = new LogType
-							{
-								Items = Log.ToArray()
-							};
-
-							var path = Path.Combine(Directory.GetCurrentDirectory(), command.filename);
-
-							FileStream file = File.Create(path);
-
-							serializer.Serialize(file, logs);
-							file.Close();
-						}
-					}
-				}
-				client.Close();
-			}
-
-			catch (Exception e)
-			{
-				DebugType debugEvent = new DebugType
-				{
-					server = Server.AUDIT_SERVER.Abbr,
-					debugMessage = e.Message
-				};
-				if(command != null)
-				{
-					debugEvent.command = command.command;
-					debugEvent.transactionNum = command.transactionNum;
-					debugEvent.username = command.username;
-				}
-				Log.Add(debugEvent);
-			}
-
-		}
-
-		public static async Task ExecuteServer()
-		{
-			Program.Log = new List<object>();
-
-			IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, Server.AUDIT_SERVER.Port);
-
-			// Creation TCP/IP Socket using 
-			// Socket Class Costructor 
-			TcpListener listener = new TcpListener(localEndPoint);
-			listener.Start();
-
-			while (true)
-			{
-				TcpClient client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
-				_ = ProcessIncoming(client);
-			}
-		}
-
-		static async Task ProcessString(TcpClient client)
-		{
-			var stream = client.GetStream();
-			using StreamReader server_in = new StreamReader(client.GetStream());
-			var data = await server_in.ReadToEndAsync().ConfigureAwait(false);
-			client.Close();
+			AuditServer server = new AuditServer();
+			await server.Run();
+			server.Dispose();
 		}
 	}
 }

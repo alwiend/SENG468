@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AddService\AddService.csproj" />
+    <ProjectReference Include="..\BuyService\BuyService.csproj" />
+    <ProjectReference Include="..\BuyTriggerService\BuyTriggerService.csproj" />
+    <ProjectReference Include="..\DisplaySummaryService\DisplaySummaryService.csproj" />
+    <ProjectReference Include="..\QuoteService\QuoteService.csproj" />
+    <ProjectReference Include="..\SellService\SellService.csproj" />
+    <ProjectReference Include="..\SellTriggerService\SellTriggerService.csproj" />
+  </ItemGroup>
+
+</Project>

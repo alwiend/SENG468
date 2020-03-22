@@ -1,15 +1,12 @@
-﻿using Base;
-using Constants;
+﻿using Constants;
 using Database;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using Utilities;
 using MySql.Data.MySqlClient;
 using System.Data;
 
-namespace SellTriggerService
+namespace TransactionServer.Services.SellTrigger
 {
     public class CancelSetSell : BaseService
     {
@@ -33,13 +30,13 @@ namespace SellTriggerService
                 }
                 else
                 {
-                    return await LogErrorEvent(command, $"No trigger set for {command.stockSymbol}");
+                    return LogErrorEvent(command, $"No trigger set for {command.stockSymbol}");
                 }
             }
             catch (Exception ex)
             {
-                await LogDebugEvent(command, ex.Message).ConfigureAwait(false);
-                return await LogErrorEvent(command, "Error processing command").ConfigureAwait(false);
+                LogDebugEvent(command, ex.Message);
+                return LogErrorEvent(command, "Error processing command");
             }
             return result;
         }

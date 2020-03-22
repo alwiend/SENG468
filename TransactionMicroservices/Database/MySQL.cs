@@ -10,7 +10,11 @@ namespace Database
 {
     public class MySQL
     {
+#if DEBUG
+        private static string ConnectionString = "server=localhost;port=3306;database=db;user=user;password=password;";
+#else
         private static string ConnectionString = "server=databaseserver_db_1;port=3306;database=db;user=user;password=password;";
+#endif
 
         public async Task<bool> PerformTransaction(Func<MySqlConnection, Task<bool>> transaction)
         {

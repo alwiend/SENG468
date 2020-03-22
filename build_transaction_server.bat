@@ -1,10 +1,10 @@
-start .\TransactionMicroservices\AddService\build.bat
-start .\TransactionMicroservices\BuyService\build.bat
-start .\TransactionMicroservices\BuyTriggerService\build.bat
-start .\TransactionMicroservices\DisplaySummaryService\build.bat
-start .\TransactionMicroservices\QuoteService\build.bat
-start .\TransactionMicroservices\SellService\build.bat
-start .\TransactionMicroservices\SellTriggerService\build.bat
+START .\TransactionMicroservices\AddService\build.bat
+START .\TransactionMicroservices\BuyService\build.bat
+START .\TransactionMicroservices\BuyTriggerService\build.bat
+START .\TransactionMicroservices\DisplaySummaryService\build.bat
+START .\TransactionMicroservices\QuoteService\build.bat
+START .\TransactionMicroservices\SellService\build.bat
+START .\TransactionMicroservices\SellTriggerService\build.bat
 
 
 PAUSE

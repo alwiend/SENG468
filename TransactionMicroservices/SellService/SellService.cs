@@ -1,15 +1,14 @@
-﻿using System;
-using System.Threading;
-using Utilities;
+﻿using Utilities;
 using Constants;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using TransactionServer.Services.Sell;
 
-namespace SellService
+namespace TransactionServer.Services
 {
-    class Program
+    public class SellService
     {
-        static async Task Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var _auditor = new AuditWriter();
             var sell_service = new SellCommand(Service.SELL_SERVICE, _auditor);
