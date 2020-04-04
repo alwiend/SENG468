@@ -1,67 +1,37 @@
 ﻿using System;
-using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
 using Utilities;
 
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-
-namespace WebServer
+namespace WebServer.Handlers
 {
-    [Produces("application/json")]
-    [Route("api/command")]
-    public class CommandController : Controller
+    public class TransactionHandler
     {
         readonly IAuditWriter _writer;
         readonly GlobalTransaction _globalTransaction;
-        readonly static ConcurrentDictionary<string, ConnectedServices> clientConnections = new ConcurrentDictionary<string, ConnectedServices>();
+        readonly ServicePool _pool;
 
-        public class TransactionCommand
-        {
-            public string Command;
-        }
-
-        public CommandController(GlobalTransaction gt, IAuditWriter aw)
+        public TransactionHandler(GlobalTransaction gt, IAuditWriter aw, ServicePool p)
         {
             _globalTransaction = gt;
+            _pool = p;
             _writer = aw;
         }
 
-        [HttpHead]
-        public async Task<IActionResult> HeadAsync([FromQuery(Name = "cmd")] string Command)
+        public async Task<(HttpStatusCode,string)> HandleTransaction(string Command)
         {
-            return await HandleTransaction(Command);
-        }
-
-
-        [HttpGet]
-        public async Task<IActionResult> GetAsync([FromQuery(Name = "cmd")] string Command)
-        {
-            return await HandleTransaction(Command);
-        }
-
-
-        // POST api/<controller>
-        [HttpPost]
-        public async Task<IActionResult> PostAsync([FromBody]TransactionCommand transaction)
-        {
-            return await HandleTransaction(transaction.Command);
-        }
-
-        private async Task<IActionResult> HandleTransaction(string Command)
-        { 
-            string Result = null;
             if (Command == null || Command.Length == 0)
             {
-                Result = "Please enter a command";
-                return BadRequest(Result);
+                return (HttpStatusCode.BadRequest,"Please enter a command");
             }
 
             string[] args = Array.ConvertAll(Command.Split(','), p => p.Trim());
             if (!Enum.TryParse(typeof(commandType), args[0].ToUpper(), out object ct))
             {
-                Result = "Invalid command";
-                return BadRequest(Result);
+                return (HttpStatusCode.BadRequest, "Invalid command");
             }
 
             UserCommandType userCommand = new UserCommandType
@@ -133,12 +103,13 @@ namespace WebServer
                     }
                     else
                     {
-                        Result = "Usage: DUMPLOG, userid, filename\nDUMPLOG filename";
+                        return (HttpStatusCode.BadRequest, "Usage:\tDUMPLOG, userid, filename\n\tDUMPLOG filename");
                     }
-                    return Ok();
+                    return (HttpStatusCode.OK, "");
                 default:
-                    return BadRequest("Invalid Command");
+                    return (HttpStatusCode.BadRequest, "Command not found");
             }
+            string Result = null;
             if (con != null)
             {
                 if (con.Validate(args, ref userCommand, out string error))
@@ -147,16 +118,16 @@ namespace WebServer
                 }
                 else
                 {
-                    Result = error;
+                    return (HttpStatusCode.BadRequest, error);
                 }
             }
-            
+
             if (Result == null)
             {
-                return StatusCode(503, "Service unavailable");
+                return (HttpStatusCode.ServiceUnavailable, "Service unavailable");
             }
 
-            return Ok(Result);
+            return (HttpStatusCode.OK, Result);
         }
 
         /*
@@ -170,18 +141,21 @@ namespace WebServer
             try
             {
                 string result = null;
-                do
+                CancellationTokenSource cts = new CancellationTokenSource(10000);
+                while (!cts.IsCancellationRequested)
                 {
-                    ConnectedServices cs = clientConnections.GetOrAdd(userCommand.username, new ConnectedServices());
-                    ServiceConnection conn = await cs.GetServiceConnectionAsync(sc).ConfigureAwait(false);
-                    if (conn == null)
+                    //ConnectedServices cs = clientConnections.GetOrAdd(userCommand.username, new ConnectedServices());
+                    //ServiceConnection conn = await cs.GetServiceConnectionAsync(sc).ConfigureAwait(false);
+                    LeasedService ls = await _pool.Lease(sc, cts.Token).ConfigureAwait(false);
+                    if (cts.IsCancellationRequested)
                     {
                         throw new Exception("Failed to connect to service");
                     }
-                    result = await conn.SendAsync(userCommand, true).ConfigureAwait(false);
-                    if (result == null)
-                        await Task.Delay(delay).ConfigureAwait(false); // Short delay before tring again
-                } while (result == null);
+                    result = await ls.Service.SendAsync(userCommand, true).ConfigureAwait(false);
+                    if (result != null)
+                        break;
+                    await Task.Delay(delay).ConfigureAwait(false); // Short delay before tring again
+                }
 
                 return result;
             }
@@ -191,6 +165,7 @@ namespace WebServer
                 return null;
             }
         }
+
 
         void LogDebugEvent(UserCommandType command, string err)
         {

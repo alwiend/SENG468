@@ -21,7 +21,8 @@ namespace Utilities
         {
             get
             {
-                return client != null && client.Connected;
+                return !(client == null || !client.Connected 
+                    || client.Client.Poll(50, SelectMode.SelectRead) || client.Available == 0);
             }
         }
 
@@ -31,7 +32,6 @@ namespace Utilities
 #else
             : this(Dns.GetHostAddresses(sc.ServiceName).FirstOrDefault(), sc.Port)
 #endif
-        // : this(IPAddress.loopback, sc.Port)
         {
         }
 
@@ -78,7 +78,7 @@ namespace Utilities
 
         public async Task<string> SendAsync(UserCommandType userCommand, bool receive = false)
         {
-            if (_tokenSource.IsCancellationRequested) return "";
+            if (_tokenSource.IsCancellationRequested) return null;
             string result = "";
             ServiceResult sr;
             try
@@ -94,7 +94,7 @@ namespace Utilities
                         {
                             Dispose();
                         }
-                        return "";
+                        return null;
                     }
                     sr = MessagePackSerializer.Deserialize<ServiceResult>(msgpack.Value, cancellationToken: _tokenSource.Token);
                     result = sr.Message;

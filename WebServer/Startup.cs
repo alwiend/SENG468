@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Utf8Json.Resolvers;
 using Utilities;
+using WebServer.Handlers;
 
 namespace WebServer
 {
@@ -40,6 +41,7 @@ namespace WebServer
             services.AddRazorPages();
             services.AddSingleton<IAuditWriter, AuditWriter>();
             services.AddSingleton<GlobalTransaction>();
+            services.AddSingleton<TransactionHandler>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -56,8 +58,8 @@ namespace WebServer
                 app.UseHsts();
             }
                         
-            //app.UseHttpsRedirection();
-            //app.UseStaticFiles();
+            app.UseHttpsRedirection();
+            app.UseStaticFiles();
 
             app.UseRouting();
 

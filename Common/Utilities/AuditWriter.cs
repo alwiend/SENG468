@@ -15,11 +15,13 @@ namespace Utilities
         readonly ConcurrentStack<object> logs = new ConcurrentStack<object>();
         private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();
         private TcpClient client = null;
+
         public bool Connected
         {
             get
             {
-                return client != null && client.Connected;
+                return !(client == null || !client.Connected
+                    || client.Client.Poll(50, SelectMode.SelectRead) || client.Available == 0);
             }
         }
 

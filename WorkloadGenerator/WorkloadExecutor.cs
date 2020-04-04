@@ -46,7 +46,8 @@ namespace WorkloadGenerator
             var start = DateTime.Now;
             try
             {
-                var result = await httpClient.GetAsync($"{URI}?cmd={command}");
+                var result = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"{URI}?cmd={command}"));
+
                 result.Dispose();
             }
             catch (TaskCanceledException ex)
@@ -72,8 +73,9 @@ namespace WorkloadGenerator
             var start = DateTime.Now;
             try
             {
-                var content = new StringContent(command, Encoding.UTF8, "application/json");
-                var result = await httpClient.PostAsync(URI, content);
+                //var content = new StringContent(command, Encoding.UTF8, "application/json");
+                
+                var result = await httpClient.GetAsync($"{URI}?cmd={command}");
                 result.Dispose();
             }
             catch (TaskCanceledException ex)
