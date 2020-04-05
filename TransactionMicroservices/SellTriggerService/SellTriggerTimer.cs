@@ -123,6 +123,7 @@ namespace TransactionServer.Services.SellTrigger
 
         async Task Start()
         {
+            int interval = 0;
             while (!_users.IsEmpty)
             {
                 try
@@ -143,7 +144,7 @@ namespace TransactionServer.Services.SellTrigger
                         await SellStockAndRemoveUserTrigger(triggered).ConfigureAwait(false);
                     }
 
-                    int interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[1])));
+                    interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[1])));
                     await Task.Delay(interval).ConfigureAwait(false);
                 }
                 catch (Exception ex)

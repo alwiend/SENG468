@@ -123,6 +123,7 @@ namespace TransactionServer.Services.BuyTrigger
 
         async Task Start()
         {
+            int interval = 0;
             while (!_users.IsEmpty)
             {
                 try
@@ -143,12 +144,12 @@ namespace TransactionServer.Services.BuyTrigger
                         await BuyStockAndRemoveUserTrigger(triggered).ConfigureAwait(false);
                     }
 
-                    int interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[1])));
+                    interval = (int)(60000 - (Unix.TimeStamp - Convert.ToInt64(args[1])));
                     await Task.Delay(interval).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    LogDebugEvent(null, ex.Message);
+                    LogDebugEvent(null, $"interval: {interval}; {ex.Message}");
                     await Task.Delay(5000);
                 }
             }
@@ -164,8 +165,8 @@ namespace TransactionServer.Services.BuyTrigger
             {
                 foreach (BuyTrigger trigger in triggered)
                 {
-                    await BuyStock(cnn, trigger).ConfigureAwait(false);
-                    RemoveUserTrigger(trigger.User, _stockSymbol);
+                    if(await BuyStock(cnn, trigger).ConfigureAwait(false))
+                        RemoveUserTrigger(trigger.User, _stockSymbol);
                 }
                 return true;
             }).ConfigureAwait(false);

@@ -14,14 +14,14 @@ namespace Utilities
     {
         readonly ConcurrentStack<object> logs = new ConcurrentStack<object>();
         private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();
-        private TcpClient client = null;
+        private volatile TcpClient client = null;
 
         public bool Connected
         {
             get
             {
                 return !(client == null || !client.Connected
-                    || client.Client.Poll(50, SelectMode.SelectRead) || client.Available == 0);
+                    || !client.Client.Poll(50, SelectMode.SelectWrite));
             }
         }
 
@@ -106,6 +106,7 @@ namespace Utilities
                 catch (Exception)
                 {
                     Console.WriteLine("Connection Failed");
+                    await Task.Delay(5000);
                 }
             }
         }

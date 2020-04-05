@@ -22,7 +22,7 @@ namespace Utilities
             get
             {
                 return !(client == null || !client.Connected 
-                    || client.Client.Poll(50, SelectMode.SelectRead) || client.Available == 0);
+                    || !client.Client.Poll(50, SelectMode.SelectWrite));
             }
         }
 

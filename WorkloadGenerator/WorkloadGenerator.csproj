@@ -26,6 +26,9 @@
     <None Update="workloads\10User_testWorkLoad.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="workloads\ping.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="workloads\1userWorkLoad.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

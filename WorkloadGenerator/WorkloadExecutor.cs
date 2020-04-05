@@ -10,7 +10,6 @@ namespace WorkloadGenerator
 
     class WorkloadExecutor
     {
-        readonly string URI = "http://localhost:8080/api/command";
         public string User { get; }
         public int Remaining 
         {
@@ -37,17 +36,18 @@ namespace WorkloadGenerator
             while (commands.Count > 0)
             {
                 // Run user commands as long as there is no errors
-                await SendToWebServer(commands.Dequeue()).ConfigureAwait(false);
+                while (!await SendToWebServer(commands.Dequeue()).ConfigureAwait(false)) { }
             }
         }
 
-        async Task SendToWebServer(string command)
+        async Task<bool> SendToWebServer(string command)
         {
             var start = DateTime.Now;
+            var success = false;
             try
             {
-                var result = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"{URI}?cmd={command}"));
-
+                var result = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"{Program.URI}?cmd={command}"));
+                success = result.IsSuccessStatusCode;
                 result.Dispose();
             }
             catch (TaskCanceledException ex)
@@ -65,6 +65,7 @@ namespace WorkloadGenerator
                 Console.WriteLine(ex);
                 Console.WriteLine("--------------------------------------------------------");
             }
+            return success;
         }
 
 
@@ -75,7 +76,7 @@ namespace WorkloadGenerator
             {
                 //var content = new StringContent(command, Encoding.UTF8, "application/json");
                 
-                var result = await httpClient.GetAsync($"{URI}?cmd={command}");
+                var result = await httpClient.GetAsync($"{Program.URI}?cmd={command}");
                 result.Dispose();
             }
             catch (TaskCanceledException ex)

@@ -1,6 +1,11 @@
 cd %~dp0
+@ECHO OFF
 
-docker build -t audit_server_image -f Dockerfile ..
+SET tag=latest
+
+IF NOT "%~1"=="" SET tag=%1
+
+docker build -t bberthelet/audit_server_image:%tag% -f Dockerfile ..
 
 PAUSE
 EXIT

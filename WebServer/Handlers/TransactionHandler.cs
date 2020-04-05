@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -10,14 +11,13 @@ namespace WebServer.Handlers
 {
     public class TransactionHandler
     {
+        static readonly ConcurrentDictionary<string, ConnectedServices> clientConnections = new ConcurrentDictionary<string, ConnectedServices>();
         readonly IAuditWriter _writer;
         readonly GlobalTransaction _globalTransaction;
-        readonly ServicePool _pool;
 
-        public TransactionHandler(GlobalTransaction gt, IAuditWriter aw, ServicePool p)
+        public TransactionHandler(GlobalTransaction gt, IAuditWriter aw)
         {
             _globalTransaction = gt;
-            _pool = p;
             _writer = aw;
         }
 
@@ -144,19 +144,20 @@ namespace WebServer.Handlers
                 CancellationTokenSource cts = new CancellationTokenSource(10000);
                 while (!cts.IsCancellationRequested)
                 {
-                    //ConnectedServices cs = clientConnections.GetOrAdd(userCommand.username, new ConnectedServices());
-                    //ServiceConnection conn = await cs.GetServiceConnectionAsync(sc).ConfigureAwait(false);
-                    LeasedService ls = await _pool.Lease(sc, cts.Token).ConfigureAwait(false);
-                    if (cts.IsCancellationRequested)
+                    ConnectedServices cs = clientConnections.GetOrAdd(userCommand.username, new ConnectedServices());
+                    ServiceConnection conn = await cs.GetServiceConnectionAsync(sc).ConfigureAwait(false);
+                    if (conn != null)
                     {
-                        throw new Exception("Failed to connect to service");
+                        result = await conn.SendAsync(userCommand, true).ConfigureAwait(false);
+                        if (result != null)
+                            break;
                     }
-                    result = await ls.Service.SendAsync(userCommand, true).ConfigureAwait(false);
-                    if (result != null)
-                        break;
                     await Task.Delay(delay).ConfigureAwait(false); // Short delay before tring again
                 }
-
+                if (result == null && cts.IsCancellationRequested)
+                {
+                    throw new Exception("Failed to connect to service");
+                }
                 return result;
             }
             catch (Exception ex)

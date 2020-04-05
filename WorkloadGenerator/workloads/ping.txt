@@ -1,0 +1,2 @@
+[1] QUOTE,user1,abc
+[2] DUMPLOG,dump.log

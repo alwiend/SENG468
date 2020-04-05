@@ -2,18 +2,16 @@
 WORKDIR /app
 
 # Copy csproj and restore as distinct layers
-COPY WebServer/*.csproj ./WebServer/
-COPY Common/Utilities/*.csproj ./Common/Utilities/
-RUN dotnet restore ./WebServer
+COPY WorkloadGenerator/*.csproj ./WorkloadGenerator/
+RUN dotnet restore ./WorkloadGenerator
 
 # Copy everything else and build
-COPY WebServer/ ./WebServer
-COPY Common/Utilities/ ./Common/Utilities
-RUN dotnet publish -c Release -o out ./WebServer
+COPY WorkloadGenerator/ ./WorkloadGenerator
+RUN dotnet publish -c Release -o out ./WorkloadGenerator
 
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/core/aspnet:3.1-alpine3.10
 WORKDIR /app
 COPY --from=build-env /app/out .
 
-ENTRYPOINT ["dotnet", "WebServer.dll"]
+ENTRYPOINT ["dotnet", "WorkloadGenerator.dll"]

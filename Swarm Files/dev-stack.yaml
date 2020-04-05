@@ -2,7 +2,7 @@ version: '3.7'
 
 services:
   web-server:
-    image: web_server_image
+    image: "bberthelet/web_server_image:${tag}"
     ports:
       - "8080:80"
     deploy:
@@ -14,7 +14,7 @@ services:
           - web_server
       
   audit-server:
-    image: audit_server_image
+    image: "bberthelet/audit_server_image:${tag}"
     deploy:
       mode: replicated
       replicas: 1
@@ -24,7 +24,7 @@ services:
           - audit_server
       
   add-service:
-    image: add_service_image
+    image: "bberthelet/add_service_image:${tag}"
     deploy:
       mode: replicated
       replicas: 1
@@ -34,7 +34,7 @@ services:
           - add_service
       
   buy-service:
-    image: buy_service_image
+    image: "bberthelet/buy_service_image:${tag}"
     deploy:
       mode: replicated
       replicas: 1
@@ -44,7 +44,7 @@ services:
           - buy_service
       
   buy-trigger-service:
-    image: buy_trigger_service_image
+    image: "bberthelet/buy_trigger_service_image:${tag}"
     deploy:
       mode: replicated
       replicas: 1
@@ -54,7 +54,7 @@ services:
           - buy_trigger_service
       
   display-summary-service:
-    image: display_summary_service_image
+    image: "bberthelet/display_summary_service_image:${tag}"
     deploy:
       mode: replicated
       replicas: 1
@@ -64,7 +64,7 @@ services:
           - display_summary_service
       
   quote-service:
-    image: quote_service_image
+    image: "bberthelet/quote_service_image:${tag}"
     deploy:
       mode: replicated
       replicas: 1
@@ -74,7 +74,7 @@ services:
           - quote_service
       
   sell-service:
-    image: sell_service_image
+    image: "bberthelet/sell_service_image:${tag}"
     deploy:
       mode: replicated
       replicas: 1
@@ -84,7 +84,7 @@ services:
           - sell_service
       
   sell-trigger-service:
-    image: sell_trigger_service_image
+    image: "bberthelet/sell_trigger_service_image:${tag}"
     deploy:
       mode: replicated
       replicas: 1
@@ -117,20 +117,10 @@ services:
     networks:
       day_trade_net:
         aliases:
-          - databaseserver_db_1
-        
-  redis-quote-cache:
-    image: redis
-    deploy:
-      mode: replicated
-      replicas: 1
-    networks:
-      day_trade_net:
-        aliases:
-          - redis_quote_cache         
+          - databaseserver_db_1      
       
   quote-server:
-    image: quote_server_image
+    image: bberthelet/quote_server_image:latest
     deploy:
       mode: replicated
       replicas: 1

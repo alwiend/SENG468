@@ -1,6 +1,11 @@
 cd %~dp0
+@ECHO OFF
 
-docker build -t quote_service_image -f Dockerfile ../..
+SET tag=latest
+
+IF NOT "%~1"=="" SET tag=%1
+
+docker build -t bberthelet/quote_service_image:%tag% -f Dockerfile ../..
 
 PAUSE
 EXIT
