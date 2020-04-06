@@ -10,17 +10,17 @@ namespace WorkloadGenerator
 
         static async Task Main(string[] args)
         {
-            if (args.Length > 2)
+            if (args.Length == 0)
             {
                 Console.WriteLine("Usage: WorkloadGenerator.exe <hostip> <filename>");
                 return;
             }
             try
             {
-                URI = $"http://{args[0]}/api/command";
+                URI = $"http://localhost:8080/api/command";
                 HttpClient httpClient = new HttpClient();
-                Console.WriteLine($"Attempting Connectiong to {URI}");
-                var result = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"{URI}?cmd=QUOTE,user1,abc"));
+                Console.WriteLine($"Attempting Connection to {URI}");
+                var result = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"{URI}?cmd=HealthCheck"));
 
                 result.Dispose();
                 Console.WriteLine("Connection Success");
@@ -31,7 +31,7 @@ namespace WorkloadGenerator
             }
 
             WorkloadGenerator gen = new WorkloadGenerator();
-            bool success = gen.RunAsync(args[1]).Result;
+            bool success = gen.RunAsync(args[0]).Result;
 
             if (success)
             {

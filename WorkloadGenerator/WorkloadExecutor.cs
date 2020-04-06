@@ -33,10 +33,12 @@ namespace WorkloadGenerator
 
         public async Task ExecuteWorkload()
         {
+            string cmd;
             while (commands.Count > 0)
             {
                 // Run user commands as long as there is no errors
-                while (!await SendToWebServer(commands.Dequeue()).ConfigureAwait(false)) { }
+                cmd = commands.Dequeue();
+                await SendToWebServer(cmd).ConfigureAwait(false);
             }
         }
 
@@ -47,7 +49,10 @@ namespace WorkloadGenerator
             try
             {
                 var result = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"{Program.URI}?cmd={command}"));
-                success = result.IsSuccessStatusCode;
+               
+                success = result.StatusCode != System.Net.HttpStatusCode.ServiceUnavailable;
+                if (!result.IsSuccessStatusCode)
+                    Console.WriteLine(result.StatusCode);
                 result.Dispose();
             }
             catch (TaskCanceledException ex)
