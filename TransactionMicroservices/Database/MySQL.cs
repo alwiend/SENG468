@@ -10,7 +10,81 @@ namespace Database
 {
     public class MySQL
     {
-        private static string ConnectionString = "server=databaseserver_db_1;port=3306;database=db;uid=user;pwd=password;";
+#if DEBUG
+        private static string ConnectionString = "server=localhost;port=3306;database=db;user=user;password=password;";
+#else
+        private static string ConnectionString = "server=databaseserver_db_1;port=3306;database=db;user=user;password=password;";
+#endif
+
+        public async Task<bool> PerformTransaction(Func<MySqlConnection, Task<bool>> transaction)
+        {
+            while (true)
+            {
+                try
+                {
+                    using (MySqlConnection cnn = new MySqlConnection(ConnectionString))
+                    {
+                        await cnn.OpenAsync().ConfigureAwait(false);
+                        return await transaction(cnn).ConfigureAwait(false);
+                    }
+                }
+                catch (MySqlException)
+                {
+                    await Task.Delay(100).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+            }
+        }
+
+        public async Task PerformTransaction(Func<MySqlConnection, UserCommandType, Task> transaction, UserCommandType o)
+        {
+            while (true)
+            {
+                try
+                {
+                    using (MySqlConnection cnn = new MySqlConnection(ConnectionString))
+                    {
+                        await cnn.OpenAsync().ConfigureAwait(false);
+                        await transaction(cnn, o).ConfigureAwait(false);
+                        return;
+                    }
+                }
+                catch (MySqlException)
+                {
+                    await Task.Delay(100).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+            }
+        }
+
+        public async Task<string> PerformTransaction(Func<MySqlConnection, UserCommandType, Task<string>> transaction, UserCommandType o)
+        {
+            while (true)
+            {
+                try
+                {
+                    using (MySqlConnection cnn = new MySqlConnection(ConnectionString))
+                    {
+                        await cnn.OpenAsync().ConfigureAwait(false);
+                        return await transaction(cnn, o).ConfigureAwait(false);
+                    }
+                }
+                catch (MySqlException)
+                {
+                    await Task.Delay(100).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+            }
+        }
 
         public async Task<Dictionary<string,object>[]> ExecuteAsync(string command)
         {

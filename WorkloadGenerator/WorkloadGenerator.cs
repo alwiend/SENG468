@@ -1,19 +1,24 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 
 namespace WorkloadGenerator
 {
+    public class TransactionCommand
+    {
+        public string Command;
+    }
     public class WorkloadGenerator
     {
         readonly Dictionary<string, Queue<string>> userCommands = new Dictionary<string, Queue<string>>();
-        readonly HttpClient httpClient = new HttpClient();
 
         public async Task<bool> RunAsync(string filename)
         {
@@ -46,77 +51,29 @@ namespace WorkloadGenerator
                         {
                             userCommands.Add(args[1], new Queue<string>());
                         }
+                        //userCommands[args[1]].Enqueue(JsonConvert.SerializeObject(new TransactionCommand() { Command = s }));
                         userCommands[args[1]].Enqueue(s);
                     }
                 }
             }
-            Console.WriteLine("Parsing Complete");
+            Console.WriteLine($"Parsing Complete");
 
-            Console.WriteLine("Wait for User Tasks");
+            Console.WriteLine("Spawn User Tasks");
+
+            var executors = userCommands.Select(userCmds => new WorkloadExecutor(userCmds.Key, userCmds.Value));
+
+            Console.WriteLine("Wait For User Tasks");
 
             DateTime start = DateTime.Now;
-            await Task.WhenAll(userCommands.Select(userCmds => Task.Run(async () =>
-            {
-                await ExecuteUserCommands(userCmds.Value);
-            })));
+            await Task.WhenAll(executors.Select(executor => executor.ExecuteWorkload()));
 
             Console.WriteLine($"Ran for {(DateTime.Now - start).TotalSeconds} seconds");
-            await PostToWebServer(finalCommand);
+            var finalQueue = new Queue<string>();
+            //finalQueue.Enqueue(JsonConvert.SerializeObject(new TransactionCommand() { Command = finalCommand }));
+            finalQueue.Enqueue(finalCommand);
+            await new WorkloadExecutor("Dumplog", finalQueue).ExecuteWorkload().ConfigureAwait(false);
 
             return true;
-        }
-
-        public async Task<bool> RunAsync()
-        {
-            Console.WriteLine("Spawn AsyncTest Tasks");
-            for (int i = 0; i < 1000; i++)
-            {
-                Queue<string> queue = new Queue<string>();
-                for (int j = 0; j < 1; j++)
-                {
-                    queue.Enqueue("AsyncTest");
-                }
-                userCommands.Add($"user{i}", queue);
-            }
-
-            Console.WriteLine("Spawning Complete");
-            Console.WriteLine("Wait For Completion");
-            DateTime start = DateTime.Now;
-            await Task.WhenAll(userCommands.Select(userCmds => Task.Run(async () =>
-            {
-                //await ExecuteUserCommands(userCmds.Value);
-            })));
-
-            Console.WriteLine($"Ran for {(DateTime.Now - start).TotalSeconds} seconds");
-            return true;
-        }
-
-        private async Task ExecuteUserCommands(Queue<string> commands)
-        {
-            while (commands.Count > 0)
-            {
-                // Run user commands as long as there is no errors
-                await PostToWebServer(commands.Dequeue());
-            }
-        }
-
-        async Task PostToWebServer(string command)
-        {
-            try
-            {
-                string URI = "http://localhost:8080";
-
-                var formContent = new FormUrlEncodedContent(new[]
-                {
-                    new KeyValuePair<string, string>("Command", command)
-                });
-                var result = await httpClient.PostAsync(URI, formContent);
-                
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.StackTrace);
-            }
-        }
+        }       
     }
 }

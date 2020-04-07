@@ -1,0 +1,8 @@
+version: '3.7'
+services:
+  quote_server:
+    image: bberthelet/quote_server_image
+    ports:
+      - "4448:4448"
+    expose:
+      - 4448

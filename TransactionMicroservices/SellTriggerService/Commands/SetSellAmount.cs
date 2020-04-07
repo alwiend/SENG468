@@ -1,13 +1,11 @@
-﻿using Base;
-using Constants;
-using Database;
+﻿using Database;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using Utilities;
+using MySql.Data.MySqlClient;
+using System.Data;
 
-namespace SellTriggerService
+namespace TransactionServer.Services.SellTrigger
 {
     public class SetSellAmount : BaseService
     {
@@ -20,49 +18,75 @@ namespace SellTriggerService
             string result = "";
             try
             {
-                // Check user account for stock, notify if insufficient
+                // Check user account for cash, notify if insufficient funds
                 MySQL db = new MySQL();
-                var userObject = await db.ExecuteAsync($"SELECT price FROM stocks" +
-                    $" WHERE userid='{command.username}' AND stock='{command.stockSymbol}'").ConfigureAwait(false);
-                if (userObject.Length == 0)
-                {
-                    return await LogErrorEvent(command, "User does not exist").ConfigureAwait(false);
-                }
-
-                int balance = Convert.ToInt32(userObject[0]["price"]);
-                // normalize
-                int quantity = (int)(command.funds * 100);
-
-                if (balance < quantity)
-                {
-                    return await LogErrorEvent(command, "Insufficient funds").ConfigureAwait(false);
-                }
-
-                // Check if there is already a trigger
-                var triggerObject = await db.ExecuteAsync($"SELECT amount FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'").ConfigureAwait(false);
-                if (triggerObject.Length > 0)
-                {
-                    return await LogErrorEvent(command, "Trigger already exists").ConfigureAwait(false);
-                }
-
-                // Set aside required stock
-                balance -= quantity;
-                await db.ExecuteNonQueryAsync($"UPDATE stocks SET price={balance}" +
-                    $" WHERE userid='{command.username}' AND stock='{command.stockSymbol}'").ConfigureAwait(false);
-
-                // Update triggers with details
-                await db.ExecuteNonQueryAsync($"INSERT INTO triggers (userid,stock,amount,triggerType) " +
-                    $"VALUES ('{command.username}','{command.stockSymbol}',{quantity},'SELL')").ConfigureAwait(false);
-
-                result = "Trigger Created";
+                result = await db.PerformTransaction(SetAmount, command).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                await LogDebugEvent(command, ex.Message).ConfigureAwait(false);
-                return await LogErrorEvent(command, "Error processing command").ConfigureAwait(false);
+                LogDebugEvent(command, ex.Message);
+                return LogErrorEvent(command, "Error processing command");
             }
             return result;
+        }
+
+        async Task<string> SetAmount(MySqlConnection cnn, UserCommandType command)
+        {
+            using (MySqlCommand cmd = new MySqlCommand())
+            {
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                var msg = await CheckUserStock(cmd, command).ConfigureAwait(false);
+                if (msg != null)
+                {
+                    return LogErrorEvent(command, msg);
+                }
+                cmd.Parameters.Clear();
+                await HoldUserStock(cmd, command).ConfigureAwait(false);
+            }
+            LogTransactionEvent(command, "remove");
+            return $"Sell amount set successfully for stock {command.stockSymbol}";
+        }
+
+        async Task<string> CheckUserStock(MySqlCommand cmd, UserCommandType command)
+        {
+            cmd.CommandText = "get_user_stock";
+
+            cmd.Parameters.AddWithValue("@pUserId", command.username);
+            cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+            cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
+            cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
+            cmd.Parameters.Add("@pStockAmount", DbType.Int32);
+            cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Output;
+
+            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+            if (cmd.Parameters["@pStockAmount"].Value == DBNull.Value)
+            {
+                return LogErrorEvent(command, "User does not exist or does not have this stock");
+            }
+            if (Convert.ToInt32(cmd.Parameters["@pStockAmount"].Value) < command.funds)
+            {
+                return LogErrorEvent(command, "Insufficient user stocks");
+            }
+
+            command.fundsSpecified = false;
+            return await SellTriggerTimer.StartOrUpdateTimer(command).ConfigureAwait(false); ;
+        }
+
+        static async Task<string> HoldUserStock(MySqlCommand cmd, UserCommandType command)
+        {
+            cmd.CommandText = "hold_user_stock";
+
+            cmd.Parameters.AddWithValue("@pUserId", command.username);
+            cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+            cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
+            cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
+            cmd.Parameters.AddWithValue("@pStockAmount", (int)command.funds);
+            cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Input;
+
+            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            return null;
         }
     }
 }

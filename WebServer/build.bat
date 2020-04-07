@@ -1,11 +1,11 @@
 cd %~dp0
-dotnet publish -c Release WebServer.csproj /p:PublishProfile=Properties\PublishProfiles\FolderProfile.pubxml
+@ECHO OFF
 
-docker stop web_server
-docker rm web_server
-docker rmi web_server_image
-docker build -t web_server_image -f Dockerfile .
-docker create -p 8080:80 --net day_trade_net --name web_server web_server_image
+SET tag=latest
+
+IF NOT "%~1"=="" SET tag=%1
+
+docker build -t bberthelet/web_server_image:%tag% -f Dockerfile ..
 
 PAUSE
 EXIT

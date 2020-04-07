@@ -1,0 +1,12 @@
+.gitignore
+.git
+.cache
+**/.vs
+**/bin
+**/obj
+DatabaseServer
+Images
+ServiceTester
+Swarm Files
+SENG468 Project Documentation.pdf
+

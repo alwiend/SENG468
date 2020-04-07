@@ -1,13 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Base;
 using Database;
 using Utilities;
-using Constants;
 using System.Threading.Tasks;
+using MySql.Data.MySqlClient;
+using System.Data;
 
-namespace SellService
+namespace TransactionServer.Services.Sell
 {
     class SellCancelCommand : BaseService
     {
@@ -18,58 +16,50 @@ namespace SellService
         protected override async Task<string> DataReceived(UserCommandType command)
         {
             string result;
-            double amount;
-            DateTime currTime = DateTime.UtcNow;
             try
             {
                 MySQL db = new MySQL();
-                var transObj = await db.ExecuteAsync($"SELECT stock, price, transTime FROM transactions " +
-                    $"WHERE userid='{command.username}' AND transType='SELL'").ConfigureAwait(false);
-                int minTimeIndex = -1;
-                double minTime = 60.1;
-                command.funds = 0;
-                for (int i = 0; i < transObj.Length; i++)
-                {
-                    amount = Convert.ToDouble(transObj[i]["price"]);
-                    long tTime = Convert.ToInt64(transObj[i]["transTime"]);
-                    DateTimeOffset transTime = DateTimeOffset.FromUnixTimeSeconds(tTime / 1000);
-                    double timeDiff = (currTime - transTime).TotalSeconds;
-                    if (timeDiff < minTime)
-                    {
-                        minTime = timeDiff;
-                        minTimeIndex = i;
-                    } else
-                    {
-                        if (timeDiff > 60)
-                        {
-                            await db.ExecuteNonQueryAsync($"UPDATE stocks SET price=price+{amount} WHERE userid='{command.username}' AND stock='{transObj[i]["stock"]}'").ConfigureAwait(false);
-                            await db.ExecuteNonQueryAsync($"DELETE FROM transactions WHERE userid='{command.username}' AND transTime='{tTime}' AND transType='SELL' AND stock='{transObj[0]["stock"]}'").ConfigureAwait(false);
-                        }
-                    }
-                }
-
-                if (minTimeIndex >=0)
-                {
-                    amount = Convert.ToInt32(transObj[minTimeIndex]["price"]);
-                    string stock = transObj[minTimeIndex]["stock"].ToString();
-                    string tTime = transObj[minTimeIndex]["transTime"].ToString();
-                    await db.ExecuteNonQueryAsync($"UPDATE stocks SET price=price+{amount} WHERE userid='{command.username}' AND stock='{stock}'").ConfigureAwait(false);
-                    result = $"Successfully canceled most recent sell command. \n" +
-                        $"You have ${amount / 100} of {stock} back into your account.";
-                    await db.ExecuteNonQueryAsync($"DELETE FROM transactions WHERE userid='{command.username}' AND stock='{stock}' AND price={amount} AND transType='SELL' AND transTime='{tTime}'").ConfigureAwait(false);
-                    command.funds = (decimal)(amount / 100);
-                    command.stockSymbol = stock;
-                } else
-                {
-                    result = await LogErrorEvent(command, "No recent transactions to cancel.").ConfigureAwait(false);
-                }
+                result = await db.PerformTransaction(SellCancel, command).ConfigureAwait(false);
             }
             catch (Exception e)
             {
-                result = await LogErrorEvent(command, "Error getting account details").ConfigureAwait(false);
-                await LogDebugEvent(command, e.Message).ConfigureAwait(false);
+                result = LogErrorEvent(command, "Error getting account details");
+                LogDebugEvent(command, e.Message);
             }
             return result;
+        }
+
+        async Task<string> SellCancel(MySqlConnection cnn, UserCommandType command)
+        {
+            using (MySqlCommand cmd = new MySqlCommand())
+            {
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "sell_cancel_stock";
+
+                cmd.Parameters.AddWithValue("@pUserId", command.username);
+                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(new MySqlParameter("@pStock", MySqlDbType.Text));
+                cmd.Parameters["@pStock"].Direction = ParameterDirection.Output;
+                cmd.Parameters.Add(new MySqlParameter("@pStockAmount", MySqlDbType.Int32));
+                cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Output;
+                cmd.Parameters.Add(new MySqlParameter("@pServerTime", MySqlDbType.Text));
+                cmd.Parameters["@pServerTime"].Direction = ParameterDirection.Output;
+                cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
+                cmd.Parameters["@success"].Direction = ParameterDirection.Output;
+                cmd.Parameters.Add(new MySqlParameter("@message", MySqlDbType.Text));
+                cmd.Parameters["@message"].Direction = ParameterDirection.Output;
+
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
+                {
+                    return Convert.ToString(cmd.Parameters["@message"].Value);
+                }
+                command.funds = Convert.ToDecimal(cmd.Parameters["@pStockAmount"].Value);
+                command.stockSymbol = Convert.ToString(cmd.Parameters["@pStock"].Value);
+                return $"Successfully canceled most recent sell transaction of {command.stockSymbol} worth ${command.funds / 100}";
+            }
         }
     }
 }

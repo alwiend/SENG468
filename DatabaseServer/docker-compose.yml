@@ -3,6 +3,7 @@ services:
   db:
     image: mysql/mysql-server:8.0.17
     restart: always
+    container_name: databaseserver_db_1
     environment:
       MYSQL_DATABASE: db
       # So you don't have to use root, but you can if you like
@@ -21,9 +22,4 @@ services:
     volumes:
      # - data/db:/var/lib/mysql
       - ./data/init:/docker-entrypoint-initdb.d
-    networks:
-      - day_trade_net
       
-networks:
-  day_trade_net:
-    external: true

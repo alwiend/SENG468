@@ -9,5 +9,5 @@
             <input asp-for="Command">
             <input type="submit">
         </form>
-        <span>Result: @Model.Result </span>
+        <span> @Html.Raw(@Model.Result) </span>
     </div>

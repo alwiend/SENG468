@@ -1,11 +1,11 @@
 cd %~dp0
-dotnet publish -c Release BuyService.csproj /p:PublishProfile=FolderProfile
+@ECHO OFF
 
-docker stop buy_service
-docker rm buy_service
-docker rmi buy_service_image
-docker build -t buy_service_image -f Dockerfile .
-docker create --net day_trade_net --name buy_service buy_service_image
+SET tag=latest
+
+IF NOT "%~1"=="" SET tag=%1
+
+docker build -t bberthelet/buy_service_image:%tag% -f Dockerfile ../..
 
 PAUSE
 EXIT

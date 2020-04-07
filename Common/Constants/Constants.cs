@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Constants
+namespace Utilities
 {
     public class Server
     {
@@ -35,11 +35,19 @@ namespace Constants
 
         public string Abbr { get; }
 
+        public string UniqueName { get; }
+
         public ServiceConstant(string sn, int port, string abbr)
         {
             ServiceName = sn;
             Port = port;
             Abbr = abbr;
+            UniqueName = $"{sn}:{port}";
+        }
+
+        public string? Validate(string[] args, out UserCommandType cmd)
+        {
+
         }
     }
 }

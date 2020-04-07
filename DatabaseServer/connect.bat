@@ -1,1 +1,1 @@
-docker exec -it databaseserver_db_1 mysql -uroot -p
+docker exec -ti databaseserver_db_1 mysql -u root -ppassword

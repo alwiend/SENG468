@@ -1,80 +1,124 @@
 ﻿using System;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Collections.Generic;
-using Base;
 using Database;
-using Newtonsoft.Json;
 using Utilities;
-using Constants;
 using System.Threading.Tasks;
+using MySql.Data.MySqlClient;
+using System.Data;
+using System.Net.Sockets;
+using System.Collections.Concurrent;
+using System.Linq;
 
-namespace BuyService
+namespace TransactionServer.Services.Buy
 {
     class BuyCommand : BaseService
     {
-        public BuyCommand(ServiceConstant sc, IAuditWriter aw) : base(sc, aw) 
+        readonly static ConcurrentDictionary<string, ConnectedServices> clientConnections = new ConcurrentDictionary<string, ConnectedServices>();
+
+        public BuyCommand(ServiceConstant sc, IAuditWriter aw) : base(sc, aw)
         {
         }
 
+        public override void Dispose()
+        {
+            base.Dispose();
+            clientConnections.Values.ToList().ForEach(conn => conn.Dispose());
+        }
+        
         protected override async Task<string> DataReceived(UserCommandType command)
         {
-            string result;
             string stockCost = await GetStock(command).ConfigureAwait(false);
-            long balance;
+            if (stockCost == null)
+            {
+                return "Quote service unavailable";
+            }
+            decimal cost = Convert.ToDecimal(stockCost);
+
+            int numStock = (int)Math.Floor(command.funds / cost); // most whole number stock that can buy
+            if (numStock == 0)
+            {
+                return $"No stock available for ${command.funds}";
+            }
+
+            command.funds = cost * numStock;
+
+            string result;
             try
             {
                 MySQL db = new MySQL();
-                var userObject = await db.ExecuteAsync($"SELECT userid, money FROM user WHERE userid='{command.username}'").ConfigureAwait(false);
-                if (userObject.Length <= 0)
+                result = await db.PerformTransaction(BuyStock, command).ConfigureAwait(false);
+
+                if (result == null)
                 {
-                    return await LogErrorEvent(command, "User does not exist or user balance error").ConfigureAwait(false);
+                    result = $"{numStock} stock is available for purchase at {cost / 100m} per share totalling {String.Format("{0:0.00}", command.funds / 100m)}.";
                 }
-                
-                balance = Convert.ToInt64(userObject[0]["money"]) / 100; // normalize
-                decimal numStock = Math.Floor(command.funds / decimal.Parse(stockCost)); // most whole number stock that can buy
-
-                if (balance < command.funds)
-                {
-                    return await LogErrorEvent(command, "User does not exist or user balance error").ConfigureAwait(false);
-                }
-                if (numStock < 1)
-                {
-                    return await LogErrorEvent(command, "User does not exist or user balance error").ConfigureAwait(false);
-                }
-
-                double amount = (double)numStock * double.Parse(stockCost); // amount to send to pending transactions
-                double leftover = balance - amount;
-                leftover *= 100; // Get rid of decimal
-                amount *= 100; // Get rid of decimal
-
-                // Store pending transaction
-                await db.ExecuteNonQueryAsync($"INSERT INTO transactions (userid, stock, price, transType, transTime) " +
-                    $"VALUES ('{command.username}','{command.stockSymbol}',{amount},'BUY','{Unix.TimeStamp.ToString()}')").ConfigureAwait(false);
-
-                result = $"{numStock} stock is available for purchase at {stockCost} per share totalling {String.Format("{0:0.00}", amount/100)}.";
-
-                // Update the amount in user account
-                await db.ExecuteNonQueryAsync($"UPDATE user SET money = {leftover} WHERE userid='{command.username}'").ConfigureAwait(false);
-
-                command.funds = (decimal)amount/100;
-                await LogTransactionEvent(command, "remove").ConfigureAwait(false);
-                }
-                catch (Exception e)
-                {
-                    result = await LogErrorEvent(command, "Error getting account details").ConfigureAwait(false); 
-                    await LogDebugEvent(command, e.Message).ConfigureAwait(false);
-                }
+            }
+            catch (Exception e)
+            {
+                result = LogErrorEvent(command, "Error getting account details");
+                LogDebugEvent(command, e.Message);
+            }
             return result;
         }
 
         async Task<string> GetStock(UserCommandType command)
         {
-            ServiceConnection conn = new ServiceConnection(Server.QUOTE_SERVER);
-            string quote = await conn.Send($"{command.stockSymbol},{command.username}", true).ConfigureAwait(false);
-            return await LogQuoteServerEvent(command, quote).ConfigureAwait(false);
+            var delay = 500;
+
+            try
+            {
+                string result = null;
+                do
+                {
+                    ConnectedServices cs = clientConnections.GetOrAdd(command.username, new ConnectedServices());
+                    ServiceConnection conn = await cs.GetServiceConnectionAsync(Service.QUOTE_SERVICE).ConfigureAwait(false);
+                    if (conn == null)
+                    {
+                        throw new Exception("Failed to connect to service");
+                    }
+                    result = await conn.SendAsync(command, true).ConfigureAwait(false);
+                    if (result == null)
+                        await Task.Delay(delay).ConfigureAwait(false); // Short delay before tring again
+                } while (result == null);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                LogDebugEvent(command, ex.Message);
+                return null;
+            }
+        }
+
+        async Task<string> BuyStock(MySqlConnection cnn, UserCommandType command)
+        {
+            using (MySqlCommand cmd = new MySqlCommand())
+            {
+                cmd.Connection = cnn;
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "buy_stock";
+
+                cmd.Parameters.AddWithValue("@pUserId", command.username);
+                cmd.Parameters["@pUserId"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStock", command.stockSymbol);
+                cmd.Parameters["@pStock"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pStockAmount", (int)(command.funds));
+                cmd.Parameters["@pStockAmount"].Direction = ParameterDirection.Input;
+                cmd.Parameters.AddWithValue("@pServerTime", Unix.TimeStamp);
+                cmd.Parameters["@pServerTime"].Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(new MySqlParameter("@success", MySqlDbType.Bit));
+                cmd.Parameters["@success"].Direction = ParameterDirection.Output;
+                cmd.Parameters.Add(new MySqlParameter("@message", MySqlDbType.Text));
+                cmd.Parameters["@message"].Direction = ParameterDirection.Output;
+
+                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                if (!Convert.ToBoolean(cmd.Parameters["@success"].Value))
+                {
+                    return LogErrorEvent(command, Convert.ToString(cmd.Parameters["@message"].Value));
+                }
+                LogTransactionEvent(command, "remove");
+                return null;
+            }
         }
     }
 }

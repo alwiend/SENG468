@@ -1,57 +1,33 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
-using Constants;
-using Base;
 using Utilities;
-using Database;
 using System.Threading.Tasks;
 
-namespace SellTriggerService
+namespace TransactionServer.Services.SellTrigger
 {
     public class SetSellTrigger : BaseService
     {
-        public SetSellTrigger(ServiceConstant sc, AuditWriter aw) : base(sc,aw)
+        public SetSellTrigger(ServiceConstant sc, AuditWriter aw) : base(sc, aw)
         {
         }
 
         protected override async Task<string> DataReceived(UserCommandType command)
         {
-            string result;
             try
             {
-                // Check if trigger exists
-                MySQL db = new MySQL();
-
-                var triggerObject = await db.ExecuteAsync($"SELECT amount,triggerAmount FROM triggers " +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'").ConfigureAwait(false);
-                if (triggerObject.Length == 0)
+                command.fundsSpecified = true;
+                var msg = await SellTriggerTimer.StartOrUpdateTimer(command).ConfigureAwait(false);
+                if (msg == null)
                 {
-                    return await LogErrorEvent(command, "Trigger does not exist").ConfigureAwait(false);
+                    return $"Trigger amount set successfully for stock {command.stockSymbol}";
                 }
-
-                if (triggerObject[0]["triggerAmount"] != DBNull.Value && Convert.ToInt32(triggerObject[0]["triggerAmount"])/100m == command.funds)
-                {
-                    return await LogErrorEvent(command, "Insufficient funds").ConfigureAwait(false);
-                }
-
-                
-                await db.ExecuteNonQueryAsync($"UPDATE triggers " +
-                    $"SET triggerAmount={command.funds*100}" +
-                    $"WHERE userid='{command.username}' AND stock='{command.stockSymbol}' AND triggerType='SELL'").ConfigureAwait(false);
-
-                result = "Trigger amount set";
-                decimal amount = Convert.ToDecimal(triggerObject[0]["amount"]) / 100m;
-                var timer = new SellTriggerTimer(command.username, command.stockSymbol, amount, command.funds);
-                timer.Start();
+                return LogErrorEvent(command, msg);
             }
             catch (Exception ex)
             {
-                await LogDebugEvent(command, ex.Message).ConfigureAwait(false);
-                return await LogErrorEvent(command, "Error processing command").ConfigureAwait(false);
+                LogDebugEvent(command, ex.Message);
+                return LogErrorEvent(command, "Error processing command.");
             }
-            return result;
         }
     }
 }
