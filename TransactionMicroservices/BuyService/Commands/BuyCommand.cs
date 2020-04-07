@@ -49,7 +49,7 @@ namespace TransactionServer.Services.Buy
 
                 if (result == null)
                 {
-                    result = $"{numStock} stock is available for purchase at {cost / 100m} per share totalling {String.Format("{0:0.00}", command.funds / 100m)}.";
+                    result = $"{numStock} stock is available for purchase at ${String.Format("{0:0.00}", cost / 100m)} per share totalling ${String.Format("{0:0.00}", command.funds / 100m)}.";
                 }
             }
             catch (Exception e)

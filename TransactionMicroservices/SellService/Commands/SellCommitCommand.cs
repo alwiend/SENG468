@@ -60,7 +60,7 @@ namespace TransactionServer.Services.Sell
                 }
                 command.funds = Convert.ToDecimal(cmd.Parameters["@pStockAmount"].Value);
                 command.stockSymbol = Convert.ToString(cmd.Parameters["@pStock"].Value);
-                return $"Successfully sold ${command.funds / 100} worth of {command.stockSymbol}";
+                return $"Successfully sold ${String.Format("{0:0.00}", command.funds / 100m)} worth of {command.stockSymbol}";
             }
         }
     }

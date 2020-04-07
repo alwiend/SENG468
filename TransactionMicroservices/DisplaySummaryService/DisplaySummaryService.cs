@@ -61,7 +61,8 @@ namespace TransactionServer.Services
                     while (await reader.ReadAsync())
                     {
                         // Reads in stock and amount
-                        stocks.Append($"{reader.GetString(0)}&nbsp&nbsp&nbsp&nbsp{Convert.ToDecimal(reader.GetValue(1))/100m}<br>");
+                        
+                        stocks.Append($"{reader.GetString(0)}&nbsp&nbsp&nbsp&nbsp${String.Format("{0:0.00}", Convert.ToDecimal(reader.GetValue(1)) / 100m)}<br>");
                     }
                 }
                 finally
@@ -74,7 +75,8 @@ namespace TransactionServer.Services
                 {
                     return "User does not exist";
                 }
-                return $"User {command.username} has ${money/100m}<br>Stock&nbsp&nbsp&nbsp&nbspAmount<br>" + stocks.ToString();
+                
+                return $"User {command.username} has ${String.Format("{0:0.00}", money / 100m)}<br>Stock&nbsp&nbsp&nbsp&nbspAmount<br>" + stocks.ToString();
             }
         }
     }

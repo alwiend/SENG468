@@ -127,6 +127,11 @@ namespace WebServer.Handlers
                 return (HttpStatusCode.ServiceUnavailable, "Service unavailable");
             }
 
+            if (userCommand.command == commandType.QUOTE)
+            {
+                Result = String.Format("${0:0.00}", Convert.ToDecimal(Result)/100m);
+            }
+
             return (HttpStatusCode.OK, Result);
         }
 

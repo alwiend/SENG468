@@ -56,8 +56,8 @@ namespace TransactionServer.Services.Buy
                 {
                     return LogErrorEvent(command, Convert.ToString(cmd.Parameters["@message"].Value));
                 }
-
-                return $"Successfully bought {Convert.ToDecimal(cmd.Parameters["@stockAmount"].Value) / 100m} worth of {cmd.Parameters["@stockBuy"].Value}.";
+                
+                return $"Successfully bought ${String.Format("{0:0.00}", Convert.ToDecimal(cmd.Parameters["@stockAmount"].Value) / 100m)} worth of {cmd.Parameters["@stockBuy"].Value}.";
             }
         }
     }

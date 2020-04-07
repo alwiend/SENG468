@@ -36,7 +36,7 @@ namespace TransactionServer.Services.Sell
             int numStock = (int)Math.Floor(command.funds / cost);
             if (numStock == 0)
             {
-                return $"Stock not able to sell for ${command.funds}";
+                return $"Stock not able to sell for ${String.Format("{0:0.00}", command.funds / 100m)}";
             }
 
             command.funds = cost * numStock;
@@ -48,7 +48,7 @@ namespace TransactionServer.Services.Sell
                 result = await db.PerformTransaction(SellStock, command).ConfigureAwait(false);
                 if (result == null)
                 {
-                    result = $"{numStock} stock is available for sale at {cost/100m} per share totalling {String.Format("{0:0.00}", command.funds/100m)}";
+                    result = $"{numStock} stock is available for sale at ${String.Format("{0:0.00}", cost / 100m)} per share totalling ${String.Format("{0:0.00}", command.funds/100m)}";
                 }
             }
             catch (Exception e)

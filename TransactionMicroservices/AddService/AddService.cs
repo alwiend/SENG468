@@ -38,7 +38,8 @@ namespace TransactionServer.Services
                 MySQL db = new MySQL();
 
                 await db.PerformTransaction(AddMoney, command).ConfigureAwait(false);
-                result = $"Successfully added {command.funds/100m} into {command.username}'s account";
+                
+                result = $"Successfully added ${String.Format("{0:0.00}", command.funds / 100m)} into {command.username}'s account";
 
                 LogTransactionEvent(command, "add");
             }
